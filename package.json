@@ -1,0 +1,36 @@
+{
+  "name": "heart-linkage-synthesis",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Single-motor 8-bar planar linkage synthesis & simulation for a 250x250 mm heart trajectory",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --noEmit false || tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "optimize": "tsx scripts/optimize.ts",
+    "seed": "tsx scripts/findSeed.ts",
+    "smoke": "node scripts/smoke.mjs",
+    "merge": "tsx scripts/merge.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "playwright": "^1.62.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9",
+    "vitest": "^2.1.3"
+  }
+}
