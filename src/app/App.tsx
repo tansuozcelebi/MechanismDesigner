@@ -49,7 +49,6 @@ import {
 import { HoverHint } from '../ui/HoverHint';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section } from '../ui/primitives';
-import { LanguageSwitch } from '../ui/LanguageSwitch';
 import { SiteNav } from '../ui/SiteNav';
 import { useT } from '../i18n';
 import '../ui/styles.css';
@@ -501,24 +500,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>
-          <img className="logo" src="/kreamet-logo.svg" alt={APP_NAME} />
-        </h1>
-        <SiteNav />
-        <span className="sub">
-          {t('app.subtitle', {
-            n: topo.links.length,
-            w: CONFIG.targetWidth,
-            h: CONFIG.targetHeight,
-          })}
-        </span>
-        <span className="spacer" />
-        <span className={`badge ${designKind === 'optimized' ? 'pass' : 'info'}`}>
-          {designLabel}
-        </span>
-        <button onClick={loadInitial}>{t('app.loadInitial')}</button>
-        <button onClick={exportDesign}>{t('app.export')}</button>
-        <LanguageSwitch />
+        <SiteNav
+          loadInitial={loadInitial}
+          exportDesign={exportDesign}
+          designLabel={designLabel}
+          designKind={designKind}
+        />
       </header>
 
       <aside className="sidebar left">

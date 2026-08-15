@@ -708,6 +708,13 @@ table.picklist tbody tr.selected td {
   flex: none;
 }
 
+.sitenav-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
 .brandtext,
 .wordmark {
   font-weight: 800;
@@ -724,6 +731,13 @@ table.picklist tbody tr.selected td {
 /* The two-tone split of the mark: gunmetal "KREA", blue "MET". */
 .krea {
   color: #dbe3ee;
+}
+
+.kreamet {
+  background: linear-gradient(90deg, #ffffff 0%, #ffffff 57%, #2f8bee 57%, #2f8bee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .met {
@@ -756,6 +770,27 @@ table.picklist tbody tr.selected td {
   color: var(--accent);
   border-color: #3a3227;
   background: #1c1a15;
+}
+
+.sitenav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  margin-left: 16px;
+}
+
+.sitenav-actions .badge {
+  margin-right: 8px;
+}
+
+.sitenav-actions button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.sitenav-actions .langswitch {
+  margin-left: auto;
 }
 
 .logofull {
