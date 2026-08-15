@@ -4,6 +4,7 @@ import { LINKS } from '../mechanism/topology';
 import type { JointId, LinkId, Pose } from '../mechanism/types';
 import { poseMassProperties } from '../dynamics/massProperties';
 import { angleOf, radToDeg, sub, type Vec2 } from '../utils/math';
+import { useT } from '../i18n';
 import { Section, num } from './primitives';
 
 /**
@@ -21,6 +22,7 @@ export function LinkTable({
   collidingLinks: Set<LinkId>;
   layerOf?: Record<string, number>;
 }) {
+  const t = useT();
   const props = pose ? poseMassProperties(geo, pose) : [];
   const massOf = new Map(props.map((p) => [p.linkId, p.mass]));
 
@@ -38,15 +40,15 @@ export function LinkTable({
   });
 
   return (
-    <Section title="Link Table">
+    <Section title={t('links.title')}>
       <table>
         <thead>
           <tr>
-            <th>Member</th>
-            <th>Length</th>
-            <th>Angle</th>
-            <th>Mass</th>
-            <th>Ly</th>
+            <th>{t('links.member')}</th>
+            <th>{t('links.length')}</th>
+            <th>{t('links.angle')}</th>
+            <th>{t('links.mass')}</th>
+            <th>{t('links.layer')}</th>
           </tr>
         </thead>
         <tbody>
@@ -67,18 +69,16 @@ export function LinkTable({
                 </td>
                 <td>{num(m.length, 2)}</td>
                 <td>{num(ang, 1, '°')}</td>
-                <td className="dim">{first ? num((massOf.get(m.linkId) ?? 0) * 1000, 1, ' g') : ''}</td>
+                <td className="dim">
+                  {first ? num((massOf.get(m.linkId) ?? 0) * 1000, 1, ' g') : ''}
+                </td>
                 <td className="dim">{first ? (layerOf?.[m.linkId] ?? '—') : ''}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      <div className="note">
-        Lengths are fixed rigid-body dimensions; angles update every frame. “Ly” is the assembly
-        layer (parallel plane) the body sits in. All members are constrained to{' '}
-        {CONFIG.Lmin}–{CONFIG.Lmax} mm.
-      </div>
+      <div className="note">{t('links.note', { min: CONFIG.Lmin, max: CONFIG.Lmax })}</div>
     </Section>
   );
 }
@@ -93,12 +93,16 @@ export function TopologyPanel({
   loopCount: number;
   loops: string[];
 }) {
+  const t = useT();
+
   return (
-    <Section title="Topology" defaultOpen={false}>
+    <Section title={t('topology.title')} defaultOpen={false}>
       <div className="row wrap">
-        <span className={`badge ${mobility === 1 ? 'pass' : 'fail'}`}>Mobility = {mobility}</span>
-        <span className="badge info">{loopCount} independent loops</span>
-        <span className="badge info">8 links / 10 joints</span>
+        <span className={`badge ${mobility === 1 ? 'pass' : 'fail'}`}>
+          {t('topology.mobility', { n: mobility })}
+        </span>
+        <span className="badge info">{t('topology.loops', { n: loopCount })}</span>
+        <span className="badge info">{t('topology.counts')}</span>
       </div>
       <div className="note" style={{ fontFamily: 'var(--mono)', fontSize: 10.5 }}>
         M = 3(n−1) − 2j₁ − j₂ = 3(8−1) − 2(10) − 0 = <b>1</b>
@@ -108,10 +112,7 @@ export function TopologyPanel({
           <div key={l}>{l}</div>
         ))}
       </div>
-      <div className="note">
-        Solved as three RRR Assur dyads in series — every joint comes from a closed-form
-        circle–circle intersection, so no Newton iteration is used anywhere.
-      </div>
+      <div className="note">{t('topology.note')}</div>
     </Section>
   );
 }

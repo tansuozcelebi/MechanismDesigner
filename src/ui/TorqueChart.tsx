@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { THEME } from '../rendering/theme';
+import { useT } from '../i18n';
 
 /**
  * Gravity-torque profile over one revolution (brief §22).
@@ -14,6 +15,7 @@ export function TorqueChart({
   cursorTheta: number;
   height?: number;
 }) {
+  const t = useT();
   const view = useMemo(() => {
     const finite = samples.filter((s) => Number.isFinite(s.tau));
     if (finite.length < 2) return null;
@@ -29,7 +31,7 @@ export function TorqueChart({
     return { d, peak, W, H, toX, toY };
   }, [samples, height]);
 
-  if (!view) return <div className="note">Torque profile unavailable.</div>;
+  if (!view) return <div className="note">{t('torque.unavailable')}</div>;
 
   const cursorX = view.toX(((cursorTheta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
   const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
@@ -68,7 +70,7 @@ export function TorqueChart({
       </svg>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <span className="note">0°</span>
-        <span className="note">peak ±{view.peak.toFixed(4)} N·m</span>
+        <span className="note">{t('torque.peak', { n: view.peak.toFixed(4) })}</span>
         <span className="note">360°</span>
       </div>
     </div>

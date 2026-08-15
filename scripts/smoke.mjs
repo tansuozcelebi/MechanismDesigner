@@ -18,6 +18,10 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1680, height: 1000 } });
 
+// Pin the UI language so the selectors below are stable regardless of the
+// browser locale. The bilingual behaviour itself is checked at the end.
+await page.addInitScript(() => window.localStorage.setItem('kreamet.lang', 'en'));
+
 const errors = [];
 page.on('pageerror', (e) => errors.push(`PAGEERROR ${e.message}`));
 page.on('console', (m) => m.type() === 'error' && errors.push(`CONSOLE ${m.text()}`));
@@ -160,6 +164,54 @@ const edge = await page.evaluate(async (b64) => {
 }, buf.toString('base64'));
 const clipped = edge.top + edge.bottom + edge.left + edge.right;
 check('fit view clips nothing', clipped === 0, JSON.stringify(edge));
+
+// --- bilingual UI -------------------------------------------------------
+const heading = await page.locator('.header h1').textContent();
+check('app is named KREAMET', heading.trim() === 'KREAMET', heading.trim());
+
+const enTitles = await page.locator('.section > header h2').allTextContents();
+await page.click('.langswitch button:has-text("TR")');
+await page.waitForTimeout(400);
+const trTitles = await page.locator('.section > header h2').allTextContents();
+
+check(
+  'switching to Turkish retranslates the panels',
+  trTitles.length === enTitles.length && trTitles.every((x, i) => x !== enTitles[i]),
+  `${enTitles[0]} -> ${trTitles[0]}`,
+);
+check(
+  'Turkish labels are present',
+  trTitles.some((x) => /MOTOR VE F|GÖRÜNÜM|ÇEVR/i.test(x)),
+  trTitles.slice(0, 3).join(' | '),
+);
+check(
+  'document language attribute follows the choice',
+  (await page.evaluate(() => document.documentElement.lang)) === 'tr',
+);
+
+// Persistence has to be checked in a context WITHOUT this script's language
+// pin, otherwise the init script simply re-pins English on every navigation.
+const fresh = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+await fresh.addInitScript(() => window.localStorage.setItem('kreamet.lang', 'tr'));
+await fresh.goto(URL, { waitUntil: 'networkidle' });
+await fresh.waitForTimeout(2500);
+const restored = (await fresh.locator('.langswitch button.active').textContent()).trim();
+const restoredLang = await fresh.evaluate(() => document.documentElement.lang);
+check(
+  'a stored language choice is restored on load',
+  restored === 'TR' && restoredLang === 'tr',
+  `${restored} / lang=${restoredLang}`,
+);
+await fresh.close();
+
+// Switch back to English and confirm it round-trips.
+await page.click('.langswitch button:has-text("EN")');
+await page.waitForTimeout(400);
+const backTitles = await page.locator('.section > header h2').allTextContents();
+check('switching back to English restores the original labels', backTitles[0] === enTitles[0]);
+
+const late = errors.filter((e) => e.includes('Maximum update depth'));
+check('no update loop after language switching', late.length === 0, `${late.length} warning(s)`);
 
 await browser.close();
 const failed = results.filter((r) => !r.pass);

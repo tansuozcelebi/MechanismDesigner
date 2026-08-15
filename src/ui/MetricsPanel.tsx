@@ -4,6 +4,7 @@ import type { Pose } from '../mechanism/types';
 import type { Kinematics2 } from '../dynamics/velocity';
 import type { TorqueBreakdown } from '../dynamics/torque';
 import { radToDeg } from '../utils/math';
+import { useT } from '../i18n';
 import { Metric, Metrics, Section, num, sci, type MetricTone } from './primitives';
 
 /** Live instrument readout for the current instant (brief §35). */
@@ -34,6 +35,7 @@ export function LivePanel({
   assemblyJump: boolean;
   metrics: MetricsType | null;
 }) {
+  const t = useT();
   const muNow = pose ? Math.min(...pose.transmissionAngles) : NaN;
   const muTone: MetricTone = !pose
     ? 'dim'
@@ -60,80 +62,86 @@ export function LivePanel({
   const degrees = ((radToDeg(theta) % 360) + 360) % 360;
 
   return (
-    <Section title="Live Instrumentation">
+    <Section title={t('live.title')}>
       {solverFailed && (
         <div className="banner bad">
-          KINEMATIC SOLUTION FAILED
+          {t('canvas.solverFailed')}
           <br />
-          {failureReason ?? 'unknown'}
+          {failureReason ?? '—'}
           <br />
-          <span className="dim">showing last valid configuration</span>
+          <span className="dim">{t('live.failedHint')}</span>
         </div>
       )}
       {assemblyJump && !solverFailed && (
-        <div className="banner warn">ASSEMBLY MODE JUMP detected on this step</div>
+        <div className="banner warn">{t('live.assemblyJump')}</div>
       )}
 
       <Metrics>
-        <Metric label="Motor angle" value={`${degrees.toFixed(2)}°`} />
-        <Metric label="Motor speed" value={`${rpm.toFixed(0)} rpm`} />
-        <Metric label="LED X" value={num(pose?.led.x, 2, ' mm')} />
-        <Metric label="LED Y" value={num(pose?.led.y, 2, ' mm')} />
+        <Metric label={t('live.motorAngle')} value={`${degrees.toFixed(2)}°`} />
+        <Metric label={t('live.motorSpeed')} value={`${rpm.toFixed(0)} rpm`} />
+        <Metric label={t('live.ledX')} value={num(pose?.led.x, 2, ' mm')} />
+        <Metric label={t('live.ledY')} value={num(pose?.led.y, 2, ' mm')} />
         <Metric
-          label="LED velocity"
+          label={t('live.ledVelocity')}
           value={ledKin?.ok ? `${(ledKin.speed / 1000).toFixed(3)} m/s` : '—'}
         />
         <Metric
-          label="LED acceleration"
+          label={t('live.ledAccel')}
           value={ledKin?.ok ? `${(ledKin.accelMagnitude / 1000).toFixed(2)} m/s²` : '—'}
         />
         <Metric
-          label="Gravity torque"
+          label={t('live.gravityTorque')}
           value={num(gravityTau, 4, ' N·m')}
-          title="dU/dtheta — quasi-static torque the motor must supply against gravity"
+          title={t('live.gravityTorqueTip')}
         />
         <Metric
-          label="Est. motor torque"
+          label={t('live.motorTorque')}
           value={torque?.ok ? num(torque.total, 4, ' N·m') : '—'}
-          title="Lagrange estimate: gravity + inertial terms at constant motor speed"
+          title={t('live.motorTorqueTip')}
         />
         <Metric
-          label="  ↳ inertial part"
+          label={t('live.inertialPart')}
           value={torque?.ok ? num(torque.inertial, 4, ' N·m') : '—'}
           tone="dim"
         />
         <Metric
-          label="  ↳ reduced inertia"
+          label={t('live.reducedInertia')}
           value={torque?.ok ? `${torque.reducedInertia.toExponential(2)} kg·m²` : '—'}
           tone="dim"
         />
         <Metric
-          label="Trajectory RMS"
+          label={t('live.trajectoryRms')}
           value={num(metrics?.match.chamferRms, 2, ' mm')}
           tone={
-            !metrics ? 'dim' : metrics.match.chamferRms < 10 ? 'good' : metrics.match.chamferRms < 25 ? 'warn' : 'bad'
+            !metrics
+              ? 'dim'
+              : metrics.match.chamferRms < 10
+                ? 'good'
+                : metrics.match.chamferRms < 25
+                  ? 'warn'
+                  : 'bad'
           }
         />
-        <Metric label="Min transmission μ" value={num(muNow, 2, '°')} tone={muTone} />
+        <Metric label={t('live.minMu')} value={num(muNow, 2, '°')} tone={muTone} />
         <Metric
-          label="Singularity margin"
+          label={t('live.singularity')}
           value={num(pose?.sigmaMin, 4)}
           tone={sigmaTone}
-          title="Smallest singular value of dF/dq (constraint Jacobian)"
+          title={t('live.singularityTip')}
         />
         <Metric
-          label="Loop closure error"
+          label={t('live.loopClosure')}
           value={pose ? `${sci(pose.loopClosureError)} mm` : '—'}
           tone={closureTone}
         />
         <Metric
-          label="Interference"
-          value={collisionCount === 0 ? 'CLEAR' : `${collisionCount} pair(s)`}
+          label={t('live.interference')}
+          value={collisionCount === 0 ? t('live.clear') : t('live.pairs', { n: collisionCount })}
           tone={collisionCount === 0 ? 'good' : 'bad'}
-          title="Coplanar interference at 12 mm bar width between bodies not sharing a joint"
+          title={t('live.interferenceTip')}
         />
         <Metric
-          label="Min member gap"
+          label={t('live.minGap')}
           value={Number.isFinite(minMemberDistance) ? num(minMemberDistance, 1, ' mm') : '—'}
           tone="dim"
         />
@@ -144,10 +152,12 @@ export function LivePanel({
 
 /** Whole-cycle verification (brief §37, §44, §45). */
 export function CyclePanel({ metrics }: { metrics: MetricsType | null }) {
+  const t = useT();
+
   if (!metrics) {
     return (
-      <Section title="Cycle Verification">
-        <div className="note">No valid sweep — adjust the design.</div>
+      <Section title={t('cycle.title')}>
+        <div className="note">{t('cycle.noSweep')}</div>
       </Section>
     );
   }
@@ -157,56 +167,57 @@ export function CyclePanel({ metrics }: { metrics: MetricsType | null }) {
   const loopOk = metrics.maxLoopClosureError < CONFIG.loopClosureTol;
 
   return (
-    <Section title="Cycle Verification">
+    <Section title={t('cycle.title')}>
       <div className="row wrap">
         <span className={`badge ${rot ? 'pass' : 'fail'}`}>
-          FULL ROTATION {rot ? 'PASS' : 'FAIL'}
+          {t(rot ? 'cycle.badge.rotationPass' : 'cycle.badge.rotationFail')}
         </span>
         <span className={`badge ${metrics.assemblyJumps === 0 ? 'pass' : 'fail'}`}>
-          JUMPS {metrics.assemblyJumps}
+          {t('cycle.badge.jumps', { n: metrics.assemblyJumps })}
         </span>
-        <span className={`badge ${loopOk ? 'pass' : 'fail'}`}>CLOSURE {loopOk ? 'OK' : 'FAIL'}</span>
-        <span className={`badge ${pathOk ? 'pass' : 'fail'}`}>PATH {pathOk ? 'CLOSED' : 'OPEN'}</span>
+        <span className={`badge ${loopOk ? 'pass' : 'fail'}`}>
+          {t(loopOk ? 'cycle.badge.closureOk' : 'cycle.badge.closureFail')}
+        </span>
+        <span className={`badge ${pathOk ? 'pass' : 'fail'}`}>
+          {t(pathOk ? 'cycle.badge.pathClosed' : 'cycle.badge.pathOpen')}
+        </span>
       </div>
 
       <Metrics>
         <Metric
-          label="Frames solved"
+          label={t('cycle.framesSolved')}
           value={`${metrics.validFrames} / ${metrics.frames}`}
           tone={rot ? 'good' : 'bad'}
         />
         <Metric
-          label="Max loop closure"
+          label={t('cycle.maxLoopClosure')}
           value={`${sci(metrics.maxLoopClosureError)} mm`}
           tone={loopOk ? 'good' : 'bad'}
-          title={`tolerance ${CONFIG.loopClosureTol} mm`}
+          title={t('cycle.toleranceTip', { n: CONFIG.loopClosureTol })}
         />
         <Metric
-          label="Path closure"
+          label={t('cycle.pathClosure')}
           value={`${sci(metrics.pathClosure)} mm`}
           tone={pathOk ? 'good' : 'bad'}
-          title="|P_LED(0) − P_LED(2π)|"
+          title={t('cycle.pathClosureTip')}
         />
         <Metric
-          label="Min transmission μ"
+          label={t('cycle.minMu')}
           value={num(metrics.minTransmissionAngle, 2, '°')}
           tone={metrics.minTransmissionAngle >= CONFIG.muHardMin ? 'good' : 'bad'}
         />
         <Metric
-          label="Effective μ margin"
+          label={t('cycle.effectiveMu')}
           value={num(metrics.effectiveTransmissionAngle, 2, '°')}
           tone={metrics.effectiveTransmissionAngle >= CONFIG.muHardMin ? 'good' : 'warn'}
-          title="min(μ, 180−μ) over the cycle; the frame's physical ceiling is 44.75°"
+          title={t('cycle.effectiveMuTip')}
         />
         <Metric
-          label="Singularity margin"
+          label={t('cycle.singularity')}
           value={num(metrics.minSigma, 4)}
           tone={metrics.minSigma > CONFIG.singularityTol ? 'good' : 'warn'}
         />
-        <Metric
-          label="Peak gravity torque"
-          value={num(metrics.peakGravityTorque, 4, ' N·m')}
-        />
+        <Metric label={t('cycle.peakTorque')} value={num(metrics.peakGravityTorque, 4, ' N·m')} />
       </Metrics>
     </Section>
   );
@@ -214,36 +225,54 @@ export function CyclePanel({ metrics }: { metrics: MetricsType | null }) {
 
 /** Target vs. achieved geometry (brief §37). */
 export function TargetPanel({ metrics }: { metrics: MetricsType | null }) {
+  const t = useT();
   const score = metrics?.heartMatchPercent ?? 0;
+
   return (
-    <Section title="Target Heart">
+    <Section title={t('target.title')}>
       <Metrics>
-        <Metric label="Target width" value={`${CONFIG.targetWidth.toFixed(2)} mm`} tone="dim" />
-        <Metric label="Target height" value={`${CONFIG.targetHeight.toFixed(2)} mm`} tone="dim" />
         <Metric
-          label="Actual width"
+          label={t('target.width')}
+          value={`${CONFIG.targetWidth.toFixed(2)} mm`}
+          tone="dim"
+        />
+        <Metric
+          label={t('target.height')}
+          value={`${CONFIG.targetHeight.toFixed(2)} mm`}
+          tone="dim"
+        />
+        <Metric
+          label={t('target.actualWidth')}
           value={num(metrics?.width, 2, ' mm')}
           tone={metrics && Math.abs(metrics.width - CONFIG.targetWidth) < 25 ? 'good' : 'warn'}
         />
         <Metric
-          label="Actual height"
+          label={t('target.actualHeight')}
           value={num(metrics?.height, 2, ' mm')}
           tone={metrics && Math.abs(metrics.height - CONFIG.targetHeight) < 25 ? 'good' : 'warn'}
         />
-        <Metric label="RMS error (Chamfer)" value={num(metrics?.match.chamferRms, 2, ' mm')} />
+        <Metric label={t('target.rmsChamfer')} value={num(metrics?.match.chamferRms, 2, ' mm')} />
         <Metric
-          label="RMS error (parameterised)"
+          label={t('target.rmsParam')}
           value={num(metrics?.match.paramRms, 2, ' mm')}
           tone="dim"
         />
-        <Metric label="Max error" value={num(metrics?.match.maxError, 2, ' mm')} />
-        <Metric label="LED → target" value={num(metrics?.match.rmsLedToTarget, 2, ' mm')} tone="dim" />
-        <Metric label="target → LED" value={num(metrics?.match.rmsTargetToLed, 2, ' mm')} tone="dim" />
+        <Metric label={t('target.maxError')} value={num(metrics?.match.maxError, 2, ' mm')} />
+        <Metric
+          label={t('target.ledToTarget')}
+          value={num(metrics?.match.rmsLedToTarget, 2, ' mm')}
+          tone="dim"
+        />
+        <Metric
+          label={t('target.targetToLed')}
+          value={num(metrics?.match.rmsTargetToLed, 2, ' mm')}
+          tone="dim"
+        />
       </Metrics>
 
       <div className="row" style={{ gap: 10, alignItems: 'baseline' }}>
         <span className="dim" style={{ fontSize: 11 }}>
-          Heart Match
+          {t('target.heartMatch')}
         </span>
         <b style={{ fontFamily: 'var(--mono)', fontSize: 18, color: 'var(--led)' }}>
           {score.toFixed(1)} %
@@ -252,29 +281,28 @@ export function TargetPanel({ metrics }: { metrics: MetricsType | null }) {
       <div className="progress">
         <i style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
       </div>
-      <div className="note">
-        Display score only — <code>100·exp(−RMS/{CONFIG.scoreCharacteristicLength})</code>.
-        Engineering decisions use the millimetre values above.
-      </div>
+      <div className="note">{t('target.scoreNote', { n: CONFIG.scoreCharacteristicLength })}</div>
     </Section>
   );
 }
 
 /** Objective breakdown, so the score is never a black box. */
 export function ObjectivePanel({ metrics }: { metrics: MetricsType | null }) {
+  const t = useT();
   if (!metrics) return null;
-  const t = metrics.terms;
+  const terms = metrics.terms;
+
   return (
-    <Section title="Objective Breakdown" defaultOpen={false}>
+    <Section title={t('objective.title')} defaultOpen={false}>
       <Metrics>
-        <Metric label="J (total)" value={num(metrics.J, 4)} />
-        <Metric label="w₁ · curve" value={num(t.curve, 4)} tone="dim" />
-        <Metric label="w₂ · size" value={num(t.size, 4)} tone="dim" />
-        <Metric label="w₃ · closure" value={num(t.closure, 4)} tone="dim" />
-        <Metric label="w₄ · singularity" value={num(t.singularity, 4)} tone="dim" />
-        <Metric label="w₅ · buildability" value={num(t.collision, 4)} tone="dim" />
-        <Metric label="w₆ · ratio" value={num(t.ratio, 4)} tone="dim" />
-        <Metric label="w₇ · gravity" value={num(t.gravity, 4)} tone="dim" />
+        <Metric label={t('objective.total')} value={num(metrics.J, 4)} />
+        <Metric label={t('objective.curve')} value={num(terms.curve, 4)} tone="dim" />
+        <Metric label={t('objective.size')} value={num(terms.size, 4)} tone="dim" />
+        <Metric label={t('objective.closure')} value={num(terms.closure, 4)} tone="dim" />
+        <Metric label={t('objective.singularity')} value={num(terms.singularity, 4)} tone="dim" />
+        <Metric label={t('objective.buildability')} value={num(terms.collision, 4)} tone="dim" />
+        <Metric label={t('objective.ratio')} value={num(terms.ratio, 4)} tone="dim" />
+        <Metric label={t('objective.gravity')} value={num(terms.gravity, 4)} tone="dim" />
       </Metrics>
       {metrics.rejectReason && <div className="banner bad">{metrics.rejectReason}</div>}
     </Section>

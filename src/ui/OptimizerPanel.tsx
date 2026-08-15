@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CONFIG } from '../mechanism/config';
 import type { SolutionSummary, WorkerResponse } from '../workers/optimization.worker';
 import type { OptimizerProgress } from '../synthesis/optimizer';
+import { useT } from '../i18n';
 import { Section, num } from './primitives';
 
 /**
@@ -21,6 +22,7 @@ export function OptimizerPanel({
   selectedIndex: number;
   source: 'stored' | 'live';
 }) {
+  const t = useT();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<OptimizerProgress | null>(null);
   const [runInfo, setRunInfo] = useState({ run: 0, total: 0 });
@@ -96,10 +98,10 @@ export function OptimizerPanel({
 
   return (
     <>
-      <Section title="Synthesis / Optimizer">
+      <Section title={t('opt.title')}>
         <div className="row">
           <label className="field">
-            <span>Population</span>
+            <span>{t('opt.population')}</span>
             <input
               type="number"
               value={population}
@@ -110,7 +112,7 @@ export function OptimizerPanel({
             />
           </label>
           <label className="field">
-            <span>Generations</span>
+            <span>{t('opt.generations')}</span>
             <input
               type="number"
               value={generations}
@@ -123,7 +125,7 @@ export function OptimizerPanel({
         </div>
         <div className="row">
           <label className="field">
-            <span>Restarts</span>
+            <span>{t('opt.restarts')}</span>
             <input
               type="number"
               value={runs}
@@ -134,7 +136,7 @@ export function OptimizerPanel({
             />
           </label>
           <label className="field">
-            <span>RNG seed</span>
+            <span>{t('opt.seed')}</span>
             <input
               type="number"
               value={seed}
@@ -147,11 +149,11 @@ export function OptimizerPanel({
         <div className="row">
           {!running ? (
             <button className="primary" onClick={start} style={{ flex: 1 }}>
-              Run Optimization
+              {t('opt.run')}
             </button>
           ) : (
             <button onClick={cancel} style={{ flex: 1 }}>
-              Cancel
+              {t('opt.cancel')}
             </button>
           )}
         </div>
@@ -162,35 +164,44 @@ export function OptimizerPanel({
               <i style={{ width: `${pct}%` }} />
             </div>
             <div className="note" style={{ fontFamily: 'var(--mono)' }}>
-              run {runInfo.run}/{runInfo.total} · {progress?.message ?? 'starting…'}
+              {t('opt.running', {
+                run: runInfo.run,
+                total: runInfo.total,
+                message: progress?.message ?? t('opt.starting'),
+              })}
               <br />
-              best J = {progress && Number.isFinite(progress.bestJ) ? progress.bestJ.toFixed(4) : '—'} ·{' '}
-              {progress?.evaluations ?? 0} evals
+              {t('opt.bestJ', {
+                j:
+                  progress && Number.isFinite(progress.bestJ) ? progress.bestJ.toFixed(4) : '—',
+                n: progress?.evaluations ?? 0,
+              })}
             </div>
           </>
         )}
 
         {result && (
           <div className="banner ok">
-            {result.evaluations} evaluations in {(result.elapsedMs / 1000).toFixed(1)} s
+            {t('opt.finished', {
+              n: result.evaluations,
+              s: (result.elapsedMs / 1000).toFixed(1),
+            })}
           </div>
         )}
         {error && <div className="banner bad">{error}</div>}
 
         <div className="note">
-          Differential Evolution (rand/1 + current-to-best/1) with a constructive feasible seed
-          population, then bounded Nelder–Mead refinement. Runs in a Web Worker so the canvas keeps
-          animating. Sampling refines {CONFIG.samplesCoarse} → {CONFIG.samplesMedium} →{' '}
-          {CONFIG.samplesFine} frames per revolution.
+          {t('opt.note', {
+            a: CONFIG.samplesCoarse,
+            b: CONFIG.samplesMedium,
+            c: CONFIG.samplesFine,
+          })}
         </div>
       </Section>
 
       {storedSolutions.length > 0 && (
-        <Section title={`Best Mechanisms (${storedSolutions.length})`}>
+        <Section title={t('opt.bestTitle', { n: storedSolutions.length })}>
           <div className="note">
-            {source === 'stored'
-              ? 'Loaded from the offline optimisation run shipped with the app.'
-              : 'From the optimisation you just ran in this browser.'}
+            {t(source === 'stored' ? 'opt.sourceStored' : 'opt.sourceLive')}
           </div>
           <div className="solutions">
             {storedSolutions.map((s, i) => (
@@ -217,49 +228,50 @@ export function OptimizerPanel({
 }
 
 function SolutionDetail({ s }: { s: SolutionSummary }) {
+  const t = useT();
   return (
     <table>
       <tbody>
         <tr>
-          <td>Score J</td>
+          <td>{t('opt.detail.score')}</td>
           <td>{num(s.J, 4)}</td>
         </tr>
         <tr>
-          <td>RMS error</td>
+          <td>{t('opt.detail.rms')}</td>
           <td>{num(s.rms, 2)} mm</td>
         </tr>
         <tr>
-          <td>Max error</td>
+          <td>{t('opt.detail.maxError')}</td>
           <td>{num(s.maxError, 2)} mm</td>
         </tr>
         <tr>
-          <td>Width × Height</td>
+          <td>{t('opt.detail.size')}</td>
           <td>
             {num(s.width, 1)} × {num(s.height, 1)} mm
           </td>
         </tr>
         <tr>
-          <td>Min transmission μ</td>
+          <td>{t('opt.detail.minMu')}</td>
           <td>{num(s.minTransmissionAngle, 2)}°</td>
         </tr>
         <tr>
-          <td>Singularity margin</td>
+          <td>{t('opt.detail.singularity')}</td>
           <td>{num(s.singularityMargin, 4)}</td>
         </tr>
         <tr>
-          <td>Coplanar interference</td>
-          <td>{s.collisionFrames} frames</td>
+          <td>{t('opt.detail.interference')}</td>
+          <td>{t('opt.detail.frames', { n: s.collisionFrames })}</td>
         </tr>
         <tr>
-          <td>Assembly layers</td>
+          <td>{t('opt.detail.layers')}</td>
           <td>{s.layerCount}</td>
         </tr>
         <tr>
-          <td>Peak gravity torque</td>
+          <td>{t('opt.detail.peakTorque')}</td>
           <td>{num(s.peakGravityTorque, 4)} N·m</td>
         </tr>
         <tr>
-          <td>Full rotation</td>
+          <td>{t('opt.detail.fullRotation')}</td>
           <td className={s.fullRotation ? 'good' : 'bad'}>
             {s.validFrames}/{s.frames}
           </td>

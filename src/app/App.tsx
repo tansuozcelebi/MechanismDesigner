@@ -23,6 +23,9 @@ import { LivePanel, CyclePanel, TargetPanel, ObjectivePanel } from '../ui/Metric
 import { OptimizerPanel } from '../ui/OptimizerPanel';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section } from '../ui/primitives';
+import { LanguageSwitch } from '../ui/LanguageSwitch';
+import { useT } from '../i18n';
+import { APP_NAME } from '../i18n/translations';
 import '../ui/styles.css';
 
 /** Convert the JSON-stored solutions into the same shape the worker emits. */
@@ -67,6 +70,7 @@ function storedToSummaries(): SolutionSummary[] {
 }
 
 export default function App() {
+  const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<MechanismViewer | null>(null);
@@ -79,9 +83,12 @@ export default function App() {
   );
 
   const [design, setDesign] = useState<DesignVector>(startingDesign);
-  const [designLabel, setDesignLabel] = useState<string>(
-    storedSummaries.length ? 'OPTIMIZED RESULT' : 'INITIAL GUESS',
+  // Store WHICH label applies, not the translated text, so switching language
+  // relabels the current design instead of freezing the words chosen earlier.
+  const [designKind, setDesignKind] = useState<'optimized' | 'initial' | 'manual'>(
+    storedSummaries.length ? 'optimized' : 'initial',
   );
+  const designLabel = t(`app.label.${designKind}` as const);
   const [solutions, setSolutions] = useState<SolutionSummary[]>(storedSummaries);
   const [solutionSource, setSolutionSource] = useState<'stored' | 'live'>('stored');
   const [selectedIndex, setSelectedIndex] = useState(storedSummaries.length ? 0 : -1);
@@ -273,7 +280,7 @@ export default function App() {
     setDesign(arrayToDesign(x));
     setSelectedIndex(index);
     setSolutionSource(source);
-    setDesignLabel('OPTIMIZED RESULT');
+    setDesignKind('optimized');
   }, []);
 
   const handleSolutions = useCallback((s: SolutionSummary[]) => {
@@ -284,14 +291,14 @@ export default function App() {
 
   const loadInitial = () => {
     setDesign(INITIAL_GUESS);
-    setDesignLabel('INITIAL GUESS');
+    setDesignKind('initial');
     setSelectedIndex(-1);
   };
 
   const exportDesign = () => {
     downloadJson(
       buildExportJson(design, analysis.metrics, designLabel),
-      `heart-linkage-${designLabel.toLowerCase().replace(/\s+/g, '-')}.json`,
+      `kreamet-${designKind}-design.json`,
     );
   };
 
@@ -303,16 +310,17 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Heart Linkage Synthesis</h1>
+        <h1>{APP_NAME}</h1>
         <span className="sub">
-          8-bar · 1-DOF · single motor at O2 · target {CONFIG.targetWidth}×{CONFIG.targetHeight} mm
+          {t('app.subtitle', { w: CONFIG.targetWidth, h: CONFIG.targetHeight })}
         </span>
         <span className="spacer" />
-        <span className={`badge ${designLabel === 'OPTIMIZED RESULT' ? 'pass' : 'info'}`}>
+        <span className={`badge ${designKind === 'optimized' ? 'pass' : 'info'}`}>
           {designLabel}
         </span>
-        <button onClick={loadInitial}>Load Initial Guess</button>
-        <button onClick={exportDesign}>Export JSON</button>
+        <button onClick={loadInitial}>{t('app.loadInitial')}</button>
+        <button onClick={exportDesign}>{t('app.export')}</button>
+        <LanguageSwitch />
       </header>
 
       <aside className="sidebar left">
@@ -334,11 +342,11 @@ export default function App() {
         />
         <CyclePanel metrics={analysis.metrics} />
         <TargetPanel metrics={analysis.metrics} />
-        <Section title="Gravity Torque τ(θ)">
+        <Section title={t('torque.title')}>
           <TorqueChart samples={analysis.torqueProfile} cursorTheta={theta} />
           <div className="note">
-            τ_g(θ) = dU/dθ by central difference on the analytic solver, U = Σ mᵢ g y_comᵢ.
-            {!gravityOn && ' Gravity is OFF — the motor torque estimate drops this term.'}
+            {t('torque.note')}
+            {!gravityOn && ` ${t('torque.gravityOff')}`}
           </div>
         </Section>
         <ObjectivePanel metrics={analysis.metrics} />
@@ -349,10 +357,10 @@ export default function App() {
         />
         <DesignPanel
           design={design}
-          label={`Design Vector — ${designLabel}`}
+          label={designLabel}
           onChange={(d) => {
             setDesign(d);
-            setDesignLabel('MANUAL EDIT');
+            setDesignKind('manual');
             setSelectedIndex(-1);
           }}
           onExport={exportDesign}
@@ -366,7 +374,7 @@ export default function App() {
             to: String(m.to),
             length: m.length,
           }))}
-          title={`Geometry Report — ${designLabel}`}
+          label={designLabel}
         />
       </aside>
 
@@ -375,31 +383,33 @@ export default function App() {
         <div className="overlay tl">
           <div>θ = {radToDeg(degrees).toFixed(2)}°</div>
           <div>LED ({pose ? pose.led.x.toFixed(1) : '—'}, {pose ? pose.led.y.toFixed(1) : '—'}) mm</div>
-          {viewerState?.solverFailed && <div className="bad">KINEMATIC SOLUTION FAILED</div>}
+          {viewerState?.solverFailed && (
+            <div className="bad">{t('canvas.solverFailed')}</div>
+          )}
         </div>
         <div className="overlay bl">
           <div className="scalebar" style={{ width: `${scaleBarPx}px` }} />
           <span>
-            {scaleBarMm} mm · view {scaleInfo.heightMm.toFixed(0)} mm tall
+            {t('canvas.scale', { n: scaleBarMm, h: scaleInfo.heightMm.toFixed(0) })}
           </span>
         </div>
         <div className="overlay br">
           <div className="legend">
             <span>
               <i style={{ background: '#8892a4' }} />
-              target heart
+              {t('canvas.legend.target')}
             </span>
             <span>
               <i style={{ background: '#ff4d6d' }} />
-              LED path
+              {t('canvas.legend.led')}
             </span>
             <span>
               <i style={{ background: '#f2a33c' }} />
-              crank
+              {t('canvas.legend.crank')}
             </span>
             <span>
               <i style={{ background: '#46c1a4' }} />
-              output
+              {t('canvas.legend.output')}
             </span>
           </div>
         </div>
@@ -437,19 +447,30 @@ export default function App() {
 
       <div className="timeline">
         <div className="row">
-          <button className="icon" onClick={() => setPlaying((p) => !p)}>
+          <button
+            className="icon"
+            onClick={() => setPlaying((p) => !p)}
+            title={t(playing ? 'timeline.pause' : 'timeline.play')}
+            aria-label={t(playing ? 'timeline.pause' : 'timeline.play')}
+          >
             {playing ? '⏸' : '▶'}
           </button>
-          <button className="icon" onClick={() => setTheta(0)} title="Go to 0°">
+          <button className="icon" onClick={() => setTheta(0)} title={t('timeline.toStart')}>
             ⏮
           </button>
-          <button className="icon" onClick={() => setTheta(2 * Math.PI)} title="Go to 360°">
+          <button
+            className="icon"
+            onClick={() => setTheta(2 * Math.PI)}
+            title={t('timeline.toEnd')}
+          >
             ⏭
           </button>
-          <button onClick={() => viewerRef.current?.clearTrail()}>Clear Trail</button>
+          <button onClick={() => viewerRef.current?.clearTrail()}>
+            {t('timeline.clearTrail')}
+          </button>
           <div className="slider" style={{ flex: 1 }}>
             <div className="head">
-              <span>Motor Angle</span>
+              <span>{t('timeline.motorAngle')}</span>
               <b>{radToDeg(degrees).toFixed(1)}°</b>
             </div>
             <input
@@ -466,8 +487,11 @@ export default function App() {
           </div>
           <span className="note" style={{ fontFamily: 'var(--mono)', minWidth: 118 }}>
             {analysis.metrics
-              ? `${analysis.metrics.validFrames}/${analysis.metrics.frames} frames OK`
-              : 'sweep failed'}
+              ? t('timeline.framesOk', {
+                  valid: analysis.metrics.validFrames,
+                  total: analysis.metrics.frames,
+                })
+              : t('timeline.sweepFailed')}
           </span>
         </div>
       </div>
