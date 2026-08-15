@@ -1,0 +1,17 @@
+export const DESIGN_KEYS = [
+    'phi6',
+    'lAB',
+    'c3r',
+    'c3a',
+    'lO4B',
+    'd4r',
+    'd4a',
+    'lCE',
+    'lO6E',
+    'g6r',
+    'g6a',
+    'lDF',
+    'lGF',
+    'p8r',
+    'p8a',
+];

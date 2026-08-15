@@ -5,6 +5,7 @@ import type { DesignVector } from '../mechanism/types';
 import type { Metrics } from '../synthesis/objective';
 import { DESIGN_KEYS } from '../mechanism/types';
 import { designToArray } from '../mechanism/mechanism';
+import { APP_NAME } from '../i18n/translations';
 
 /**
  * Design export (brief §52) — the handoff format for later CAD generation.
@@ -26,6 +27,7 @@ export function buildExportJson(
 
   return {
     schema: 'heart-linkage-design/1',
+    application: APP_NAME,
     label,
     exportedAt: new Date().toISOString(),
     target: {

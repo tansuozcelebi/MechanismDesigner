@@ -548,3 +548,38 @@ table tr.collide td {
 ::-webkit-scrollbar-thumb:hover {
   background: #3a4655;
 }
+
+/* ------------------------- language switch --------------------------- */
+
+.langswitch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.langswitch button {
+  border: none;
+  border-radius: 0;
+  padding: 5px 11px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--panel-alt);
+}
+
+.langswitch button + button {
+  border-left: 1px solid var(--border);
+}
+
+.langswitch button:hover:not(.active) {
+  color: var(--text);
+  background: #232c38;
+}
+
+.langswitch button.active {
+  background: var(--accent);
+  color: #17120a;
+}

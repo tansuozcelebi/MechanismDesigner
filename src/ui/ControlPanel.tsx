@@ -3,6 +3,7 @@ import type { DesignVector } from '../mechanism/types';
 import { DESIGN_KEYS } from '../mechanism/types';
 import { BOUNDS, designToArray } from '../mechanism/mechanism';
 import type { DebugOptions } from '../rendering/DebugRenderer';
+import { useT } from '../i18n';
 import { Check, Section, Slider, num } from './primitives';
 
 export type DisplayOptions = {
@@ -29,42 +30,67 @@ export function DisplayPanel({
   onFullPath: () => void;
   onFitView: () => void;
 }) {
+  const t = useT();
   const set = <K extends keyof DisplayOptions>(k: K, v: DisplayOptions[K]) =>
     onDisplay({ ...display, [k]: v });
   const setDbg = <K extends keyof DebugOptions>(k: K, v: boolean) =>
     onDebugOptions({ ...debugOptions, [k]: v });
 
   return (
-    <Section title="Display">
+    <Section title={t('display.title')}>
       <div className="row wrap">
-        <Check label="Grid" checked={display.grid} onChange={(v) => set('grid', v)} />
-        <Check label="Show Target" checked={display.target} onChange={(v) => set('target', v)} />
-        <Check label="Show Trail" checked={display.trail} onChange={(v) => set('trail', v)} />
-        <Check label="Debug" checked={display.debug} onChange={(v) => set('debug', v)} />
+        <Check label={t('display.grid')} checked={display.grid} onChange={(v) => set('grid', v)} />
+        <Check
+          label={t('display.showTarget')}
+          checked={display.target}
+          onChange={(v) => set('target', v)}
+        />
+        <Check
+          label={t('display.showTrail')}
+          checked={display.trail}
+          onChange={(v) => set('trail', v)}
+        />
+        <Check
+          label={t('display.debug')}
+          checked={display.debug}
+          onChange={(v) => set('debug', v)}
+        />
       </div>
 
       {display.debug && (
         <div className="row wrap" style={{ paddingLeft: 6 }}>
-          <Check label="Names" checked={debugOptions.names} onChange={(v) => setDbg('names', v)} />
           <Check
-            label="Coords"
+            label={t('display.dbg.names')}
+            checked={debugOptions.names}
+            onChange={(v) => setDbg('names', v)}
+          />
+          <Check
+            label={t('display.dbg.coords')}
             checked={debugOptions.coordinates}
             onChange={(v) => setDbg('coordinates', v)}
           />
-          <Check label="Loops" checked={debugOptions.loops} onChange={(v) => setDbg('loops', v)} />
-          <Check label="COM" checked={debugOptions.com} onChange={(v) => setDbg('com', v)} />
           <Check
-            label="Velocity"
+            label={t('display.dbg.loops')}
+            checked={debugOptions.loops}
+            onChange={(v) => setDbg('loops', v)}
+          />
+          <Check
+            label={t('display.dbg.com')}
+            checked={debugOptions.com}
+            onChange={(v) => setDbg('com', v)}
+          />
+          <Check
+            label={t('display.dbg.velocity')}
             checked={debugOptions.velocity}
             onChange={(v) => setDbg('velocity', v)}
           />
           <Check
-            label="Gravity"
+            label={t('display.dbg.gravity')}
             checked={debugOptions.gravity}
             onChange={(v) => setDbg('gravity', v)}
           />
           <Check
-            label="μ angles"
+            label={t('display.dbg.mu')}
             checked={debugOptions.transmission}
             onChange={(v) => setDbg('transmission', v)}
           />
@@ -72,13 +98,11 @@ export function DisplayPanel({
       )}
 
       <div className="row wrap">
-        <button onClick={onClearTrail}>Clear Trail</button>
-        <button onClick={onFullPath}>Draw Full Path</button>
-        <button onClick={onFitView}>Fit View</button>
+        <button onClick={onClearTrail}>{t('display.clearTrail')}</button>
+        <button onClick={onFullPath}>{t('display.fullPath')}</button>
+        <button onClick={onFitView}>{t('display.fitView')}</button>
       </div>
-      <div className="note">
-        Drag the orange crank to turn the motor by hand. Drag empty space to pan, wheel to zoom.
-      </div>
+      <div className="note">{t('display.hint')}</div>
     </Section>
   );
 }
@@ -96,11 +120,13 @@ export function MotorPanel({
   onGravity: (v: boolean) => void;
   playing: boolean;
 }) {
+  const t = useT();
   const omega = (2 * Math.PI * rpm) / 60;
+
   return (
-    <Section title="Motor & Physics">
+    <Section title={t('motor.title')}>
       <Slider
-        label="Motor speed"
+        label={t('motor.speed')}
         value={rpm}
         min={CONFIG.rpmMin}
         max={CONFIG.rpmMax}
@@ -110,17 +136,17 @@ export function MotorPanel({
         onChange={onRpm}
       />
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="note">ω = 2π·rpm/60</span>
+        <span className="note">{t('motor.omegaFormula')}</span>
         <span className="note" style={{ fontFamily: 'var(--mono)' }}>
           {omega.toFixed(3)} rad/s
         </span>
       </div>
       <div className="row">
-        <Check label="Gravity ON" checked={gravityOn} onChange={onGravity} />
-        <span className="note">g = [0, −9.807] m/s², +y up</span>
+        <Check label={t('motor.gravityOn')} checked={gravityOn} onChange={onGravity} />
+        <span className="note">{t('motor.gravityVector')}</span>
       </div>
       <div className="note">
-        {playing ? 'Playing' : 'Paused'} — one motor revolution traces one complete LED path.
+        {t(playing ? 'motor.playing' : 'motor.paused')} {t('motor.oneRev')}
       </div>
     </Section>
   );
@@ -138,6 +164,7 @@ export function DesignPanel({
   onChange: (d: DesignVector) => void;
   onExport: () => void;
 }) {
+  const t = useT();
   const arr = designToArray(design);
 
   const update = (i: number, v: number) => {
@@ -151,10 +178,13 @@ export function DesignPanel({
   };
 
   return (
-    <Section title={label} defaultOpen={false}>
+    <Section title={t('design.title', { label })} defaultOpen={false}>
       <div className="note">
-        Fixed by the brief: O2 = (0, 0), |O2 O4| = {CONFIG.O2O4} mm, |O4 O6| = {CONFIG.O4O6} mm,
-        crank |O2 A| = {CONFIG.crankLength} mm.
+        {t('design.fixedNote', {
+          a: CONFIG.O2O4,
+          b: CONFIG.O4O6,
+          c: CONFIG.crankLength,
+        })}
       </div>
       {DESIGN_KEYS.map((k, i) => {
         const [lo, hi] = BOUNDS[k];
@@ -166,13 +196,13 @@ export function DesignPanel({
             value={arr[i]}
             min={lo}
             max={hi}
-            step={isAngle ? 0.5 : 0.5}
+            step={0.5}
             digits={2}
             onChange={(v) => update(i, v)}
           />
         );
       })}
-      <button onClick={onExport}>Export Design JSON</button>
+      <button onClick={onExport}>{t('design.export')}</button>
     </Section>
   );
 }
@@ -182,15 +212,21 @@ export function GeometryReport({
   design,
   pivots,
   members,
-  title,
+  label,
 }: {
   design: DesignVector;
-  pivots: { O2: { x: number; y: number }; O4: { x: number; y: number }; O6: { x: number; y: number } };
+  pivots: {
+    O2: { x: number; y: number };
+    O4: { x: number; y: number };
+    O6: { x: number; y: number };
+  };
   members: { linkId: string; from: string; to: string; length: number }[];
-  title: string;
+  label: string;
 }) {
+  const t = useT();
+
   return (
-    <Section title={title} defaultOpen={false}>
+    <Section title={t('design.geometryTitle', { label })} defaultOpen={false}>
       <table>
         <tbody>
           <tr>
@@ -220,8 +256,8 @@ export function GeometryReport({
       <table>
         <thead>
           <tr>
-            <th>Member</th>
-            <th>Length (mm)</th>
+            <th>{t('links.member')}</th>
+            <th>{t('design.lengthMm')}</th>
           </tr>
         </thead>
         <tbody>

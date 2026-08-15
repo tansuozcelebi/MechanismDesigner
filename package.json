@@ -1,9 +1,9 @@
 {
-  "name": "heart-linkage-synthesis",
+  "name": "kreamet",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Single-motor 8-bar planar linkage synthesis & simulation for a 250x250 mm heart trajectory",
+  "description": "KREAMET \u2014 single-motor 8-bar planar linkage synthesis & simulation for a 250x250 mm heart trajectory",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b --noEmit false || tsc --noEmit && vite build",

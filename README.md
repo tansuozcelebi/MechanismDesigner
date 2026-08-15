@@ -1,15 +1,35 @@
-# Heart Linkage Synthesis
+# KREAMET
 
 A kinematic-synthesis workbench for a **single-motor, cam-free, planar 8-bar linkage** whose
 output LED traces an approximately 250 × 250 mm heart. Vite + React + TypeScript + Three.js.
 
+The interface is **bilingual — English and Turkish (Türkçe)** — switchable from the header at any
+time. *Arayüz İngilizce ve Türkçe olarak iki dillidir; sağ üstteki EN / TR düğmesinden
+değiştirilebilir.*
+
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 54 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server
+npm test           # 64 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (18 checks)
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
 ```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+
+| Job | Does |
+|---|---|
+| **verify** | `npm ci` → `typecheck` → `test` (64) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 18-check browser smoke test |
+
+The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
+the app through the `window.__viewer` handle, which is deliberately stripped from production
+bundles. It covers what unit tests cannot — crank dragging, screen↔world round-tripping, playback,
+the debug overlay, canvas-edge clipping and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
+because CI runners are slower than a dev box, and `CHROMIUM` can point the script at a specific
+browser binary; otherwise it falls back to whatever Playwright installed.
 
 ---
 
@@ -209,7 +229,8 @@ src/
   rendering/   Scene · MechanismViewer · Link/Joint/Trail/Heart/Debug renderers
   interaction/ crankDrag
   workers/     optimization.worker
-  ui/          ControlPanel · MetricsPanel · LinkTable · TorqueChart · primitives
+  i18n/        translations (en + tr, key-parity enforced by the type system) · provider
+  ui/          ControlPanel · MetricsPanel · LinkTable · TorqueChart · LanguageSwitch · primitives
   utils/       math · units
 ```
 
@@ -227,6 +248,21 @@ with the brief's weights in `config.ts`. Each term is normalised to a comparable
 raw values the millimetre-scaled curve term outweighs every physical constraint by two orders of
 magnitude, and the optimiser happily returns mechanisms that trace a fine heart at 1° transmission
 angle. The normalisation constants are in `CONFIG.scales`, documented with the reasoning.
+
+## Localisation
+
+`src/i18n/translations.ts` holds both dictionaries. `en` is the reference; `tr` is typed as
+`Record<keyof typeof en, string>`, so **adding a string to one language and forgetting the other
+fails the build** rather than silently shipping an English label in a Turkish UI. A test also
+asserts that both languages share the same `{placeholder}` set, since a mistyped slot would render
+a literal brace to the user.
+
+Engineering notation (mm, N·m, θ, μ, σ, RMS, J, link and joint names) is deliberately **not**
+translated — it is standard across both languages and a Turkish mechanism engineer expects it
+unchanged. Only prose and labels are localised.
+
+The initial language follows an earlier explicit choice, else the browser's `navigator.language`,
+else English; the choice is stored in `localStorage` and also applied to `<html lang>`.
 
 ## Export
 
