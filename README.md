@@ -13,7 +13,7 @@ değiştirilebilir.*
 npm install
 npm run dev        # http://localhost:5173
 npm test           # 97 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (49 checks)
+npm run smoke      # browser smoke test against a running dev server (50 checks)
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
 ```
@@ -25,7 +25,7 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 | Job | Does |
 |---|---|
 | **verify** | `npm ci` → `typecheck` → `test` (97) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 49-check browser smoke test |
+| **smoke** | installs Chromium, starts the dev server, runs the 50-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -418,9 +418,13 @@ else English; the choice is stored in `localStorage` and also applied to `<html 
 `public/kreamet-logo.svg` is the single brand asset — a gear, a fixed frame
 post and two links meeting at a revolute bearing forming a K, beside the
 KREAMET wordmark. One file serves the designer header, the content-page header
-and the About hero. It is drawn once per page: the designer renders it as its
-page heading, so `SiteNav` takes `brand={false}` there rather than putting the
-same logo on screen twice.
+and the About hero.
+
+`SiteNav` owns the whole header bar — brand, route links, and on the designer
+the subtitle, the design badge, the load/export buttons and the language switch.
+One component laying out the bar is what keeps the brand and the links in the
+same place on every page, and what makes it structurally impossible to draw the
+lockup twice.
 
 The wordmark is real `<text>` with `textLength` pinned, so the lockup occupies a
 known width whatever font the viewer actually has, and the `viewBox` is sized

@@ -13,61 +13,40 @@ const LABEL_KEY: Record<Route, 'nav.designer' | 'nav.about' | 'nav.theory'> = {
 export const LOGO_SRC = '/kreamet-logo.svg';
 
 /**
- * Brand and route links, shared by the designer header and the content pages so
- * navigation sits in the same place everywhere.  Plain anchors rather than click
- * handlers: hash links are real URLs, so they can be middle-clicked, copied and
- * bookmarked, and they keep working with JavaScript still booting.
+ * The whole header bar: brand, route links, and — on the designer — the
+ * subtitle and the design actions.
  *
- * `brand` is optional because the designer renders the lockup itself, as its
- * page heading. Drawing it here as well would put the same logo on screen
- * twice, side by side.
+ * One component owns the bar so the brand and the links never move between
+ * pages, and so the lockup is drawn exactly once. The designer passes its
+ * extras in rather than laying out a second header beside this one.
+ *
+ * Plain anchors rather than click handlers: hash links are real URLs, so they
+ * can be middle-clicked, copied and bookmarked, and they keep working while
+ * JavaScript is still booting.
  */
-<<<<<<< HEAD
 export function SiteNav({
-  compact = false,
-  loadInitial,
-  exportDesign,
+  subtitle,
   designLabel,
   designKind,
+  loadInitial,
+  exportDesign,
 }: {
-  compact?: boolean;
-  loadInitial?: () => void;
-  exportDesign?: () => void;
+  /** The designer's live mechanism summary; absent on the content pages. */
+  subtitle?: string;
   designLabel?: string;
   designKind?: 'optimized' | 'initial' | 'manual' | 'sampled';
+  loadInitial?: () => void;
+  exportDesign?: () => void;
 }) {
-=======
-export function SiteNav({ brand = true }: { brand?: boolean }) {
->>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
   const t = useT();
   const { route } = useRoute();
 
   return (
-<<<<<<< HEAD
     <div className="sitenav-container">
       <a className="brand" href={hrefFor('designer')} aria-label={APP_NAME}>
-        <LogoMark size={compact ? 26 : 30} />
-        {/* The designer has no other page title, so the wordmark is its <h1>.
-            The content pages carry their own headings, and a second h1 there
-            would compete with them. */}
-        {compact ? (
-          <span className="brandtext">
-            <span className="kreamet">KREAMET</span>
-          </span>
-        ) : (
-          <h1 className="brandtext">
-            <span className="kreamet">KREAMET</span>
-          </h1>
-        )}
+        <img className="logo" src={LOGO_SRC} alt={APP_NAME} />
       </a>
-=======
-    <>
-      {brand && (
-        <a className="brand" href={hrefFor('designer')} aria-label={APP_NAME}>
-          <img className="logo" src={LOGO_SRC} alt={APP_NAME} />
-        </a>
-      )}
->>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
+
       <nav className="sitenav">
         {ROUTES.map((r) => (
           <a
@@ -80,16 +59,21 @@ export function SiteNav({ brand = true }: { brand?: boolean }) {
           </a>
         ))}
       </nav>
-      {!compact && loadInitial && exportDesign && designLabel && designKind && (
-        <div className="sitenav-actions">
+
+      {subtitle && <span className="sub">{subtitle}</span>}
+
+      {/* Pushed right; the language switch is always the last control, so it
+          sits in the same place whichever page you are on. */}
+      <div className="sitenav-actions">
+        {designLabel && (
           <span className={`badge ${designKind === 'optimized' ? 'pass' : 'info'}`}>
             {designLabel}
           </span>
-          <button onClick={loadInitial}>{t('app.loadInitial')}</button>
-          <button onClick={exportDesign}>{t('app.export')}</button>
-          <LanguageSwitch />
-        </div>
-      )}
+        )}
+        {loadInitial && <button onClick={loadInitial}>{t('app.loadInitial')}</button>}
+        {exportDesign && <button onClick={exportDesign}>{t('app.export')}</button>}
+        <LanguageSwitch />
+      </div>
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { Suspense, lazy, useEffect } from 'react';
 import App from './App';
 import { useRoute } from './router';
 import { SiteNav } from '../ui/SiteNav';
-import { LanguageSwitch } from '../ui/LanguageSwitch';
 import { useT } from '../i18n';
 
 /**
@@ -36,8 +35,6 @@ export default function Shell() {
     <div className="site">
       <header className="siteheader">
         <SiteNav />
-        <span className="spacer" />
-        <LanguageSwitch />
       </header>
       <Suspense fallback={<div className="loading">{t('theory.loading')}</div>}>
         {route === 'about' ? <AboutPage /> : <TheoryPage />}

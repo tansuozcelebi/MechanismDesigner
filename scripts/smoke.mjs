@@ -374,15 +374,21 @@ await page.locator('.section:has(h2:text-is("Constraints & Weights")) > header')
 
 // --- bilingual UI -------------------------------------------------------
 const headerLogos = await page.locator('.header .logo').count();
-const headerBrands = await page.locator('.header .brand').count();
 check(
   'the designer header shows the lockup exactly once',
-  headerLogos === 1 && headerBrands === 0,
-  `${headerLogos} logo(s), ${headerBrands} nav brand(s)`,
+  headerLogos === 1,
+  `${headerLogos} logo(s)`,
 );
 check(
   'the lockup is labelled with the app name',
   (await page.locator('.header .logo').getAttribute('alt')) === 'KREAMET',
+);
+// The designer's extras live in the shared bar now, so they must still be there.
+check(
+  'the designer keeps its subtitle and actions in the shared bar',
+  (await page.locator('.header .sub').count()) === 1 &&
+    (await page.locator('.header .sitenav-actions .langswitch').count()) === 1 &&
+    (await page.locator('.header button:has-text("Export JSON")').count()) === 1,
 );
 
 const enTitles = await page.locator('.section > header h2').allTextContents();

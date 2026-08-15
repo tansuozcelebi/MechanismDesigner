@@ -51,7 +51,6 @@ import { TorqueChart } from '../ui/TorqueChart';
 import { Section } from '../ui/primitives';
 import { SiteNav } from '../ui/SiteNav';
 import { useT } from '../i18n';
-import { APP_NAME } from '../i18n/translations';
 import '../ui/styles.css';
 
 /** Seed used when a new mechanism size needs a feasible starting design. */
@@ -501,34 +500,17 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-<<<<<<< HEAD
         <SiteNav
-          loadInitial={loadInitial}
-          exportDesign={exportDesign}
-          designLabel={designLabel}
-          designKind={designKind}
-        />
-=======
-        <h1>
-          <img className="logo" src="/kreamet-logo.svg" alt={APP_NAME} />
-        </h1>
-        {/* The <h1> above already carries the lockup, so the nav omits it. */}
-        <SiteNav brand={false} />
-        <span className="sub">
-          {t('app.subtitle', {
+          subtitle={t('app.subtitle', {
             n: topo.links.length,
             w: CONFIG.targetWidth,
             h: CONFIG.targetHeight,
           })}
-        </span>
-        <span className="spacer" />
-        <span className={`badge ${designKind === 'optimized' ? 'pass' : 'info'}`}>
-          {designLabel}
-        </span>
-        <button onClick={loadInitial}>{t('app.loadInitial')}</button>
-        <button onClick={exportDesign}>{t('app.export')}</button>
-        <LanguageSwitch />
->>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
+          designLabel={designLabel}
+          designKind={designKind}
+          loadInitial={loadInitial}
+          exportDesign={exportDesign}
+        />
       </header>
 
       <aside className="sidebar left">
