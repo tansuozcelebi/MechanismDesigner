@@ -94,6 +94,8 @@ export default function App() {
   const [debugOptions, setDebugOptions] = useState<DebugOptions>({ ...DEFAULT_DEBUG });
 
   const [viewerState, setViewerState] = useState<ViewerState | null>(null);
+  /** Last ViewerState pushed into React, for identity comparison in the loop. */
+  const publishedRef = useRef<ViewerState | null>(null);
   const [scaleInfo, setScaleInfo] = useState({ mmPerPixel: 1, heightMm: 800 });
 
   const omega = rpmToRadPerSec(rpm);
@@ -121,7 +123,6 @@ export default function App() {
     if (!canvasRef.current) return;
     const viewer = new MechanismViewer(canvasRef.current, design);
     viewerRef.current = viewer;
-    viewer.onState = setViewerState;
 
     dragRef.current = new CrankDragController(viewer.scene, {
       onAngle: (t) => {
@@ -135,8 +136,18 @@ export default function App() {
 
     // Keep the on-canvas scale bar honest: it must follow every projection
     // change (fit, zoom, pan), not just window resizes.
+    //
+    // The functional update must return the PREVIOUS object when nothing
+    // actually moved.  Allocating a fresh object on every camera update makes
+    // React re-render even for an identical view, and a re-render can resize
+    // the canvas, which updates the camera again — a feedback loop that trips
+    // "Maximum update depth exceeded". Returning `prev` lets React bail out.
     viewer.scene.onViewChange = (v) =>
-      setScaleInfo({ mmPerPixel: v.mmPerPixel, heightMm: v.heightMm });
+      setScaleInfo((prev) =>
+        prev.mmPerPixel === v.mmPerPixel && prev.heightMm === v.heightMm
+          ? prev
+          : { mmPerPixel: v.mmPerPixel, heightMm: v.heightMm },
+      );
 
     const resize = () => {
       const el = wrapRef.current;
@@ -216,7 +227,20 @@ export default function App() {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       if (playing) setTheta((t) => t + omega * dt);
-      viewerRef.current?.render();
+
+      const v = viewerRef.current;
+      if (v) {
+        v.render();
+        // Publish the solved state from the frame callback rather than from
+        // inside the effect that drives the motor. The viewer replaces the
+        // object on every solve, so an identity check is enough to skip
+        // renders on frames where nothing moved.
+        const s = v.viewerState;
+        if (s !== publishedRef.current) {
+          publishedRef.current = s;
+          setViewerState(s);
+        }
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

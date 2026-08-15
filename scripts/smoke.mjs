@@ -92,10 +92,15 @@ check('screen <-> world round trip', rt < 1e-6, `${rt.toExponential(2)} mm`);
 await page.click('button:has-text("▶")');
 await page.waitForTimeout(1000);
 const t1 = await theta();
-await page.waitForTimeout(1000);
+await page.waitForTimeout(1500);
 const t2 = await theta();
 await page.click('button:has-text("⏸")');
 check('playback advances the motor', t1 !== t2, `${t1}° -> ${t2}°`);
+
+// Regression: publishing viewer state from inside the motor-angle effect made
+// React treat every animation frame as a nested update.
+const nested = errors.filter((e) => e.includes('Maximum update depth'));
+check('sustained playback triggers no React update loop', nested.length === 0, `${nested.length} warning(s)`);
 
 await page.locator('.timeline input[type=range]').fill('270');
 await page.waitForTimeout(300);
