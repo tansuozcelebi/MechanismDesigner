@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push supersedes an in-flight run for the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  verify:
+    name: Typecheck · tests · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  smoke:
+    name: Browser smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # The smoke test drives the real app in a real browser: it checks crank
+      # dragging, screen<->world round-tripping, playback, the debug overlay,
+      # canvas-edge clipping and the EN/TR switch. None of that is reachable
+      # from unit tests, so it needs an actual Chromium.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Runs against the dev server, not the preview build: the smoke test uses
+      # the window.__viewer handle, which is deliberately stripped in production.
+      - name: Start dev server
+        run: |
+          npm run dev > /tmp/vite.log 2>&1 &
+          echo "VITE_PID=$!" >> "$GITHUB_ENV"
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:5173/; then
+              echo "dev server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "dev server did not come up in 60s"
+          cat /tmp/vite.log
+          exit 1
+
+      - name: Smoke test
+        env:
+          SMOKE_SETTLE: '6000'
+        run: npm run smoke
+
+      - name: Dev server log
+        if: failure()
+        run: cat /tmp/vite.log
+
+      - name: Stop dev server
+        if: always()
+        run: kill "$VITE_PID" 2>/dev/null || true

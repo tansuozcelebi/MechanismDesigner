@@ -15,6 +15,22 @@ npm run smoke      # browser smoke test against a running dev server (18 checks)
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
 ```
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+
+| Job | Does |
+|---|---|
+| **verify** | `npm ci` → `typecheck` → `test` (64) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 18-check browser smoke test |
+
+The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
+the app through the `window.__viewer` handle, which is deliberately stripped from production
+bundles. It covers what unit tests cannot — crank dragging, screen↔world round-tripping, playback,
+the debug overlay, canvas-edge clipping and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
+because CI runners are slower than a dev box, and `CHROMIUM` can point the script at a specific
+browser binary; otherwise it falls back to whatever Playwright installed.
+
 ---
 
 ## A. Topology

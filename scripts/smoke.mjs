@@ -11,11 +11,27 @@
  * overlay populates, and nothing is clipped at the canvas edges.
  */
 import { chromium } from 'playwright';
+import { existsSync } from 'node:fs';
 
 const URL = process.env.APP_URL ?? 'http://localhost:5173/';
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
-});
+
+/**
+ * Browser resolution, in order: an explicit CHROMIUM path, the pre-installed
+ * browser this dev image ships, then whatever Playwright installed itself.
+ * Without the fallback this only runs on one machine, which is no use in CI.
+ */
+const PREINSTALLED = '/opt/pw-browsers/chromium';
+const launchOptions =
+  process.env.CHROMIUM
+    ? { executablePath: process.env.CHROMIUM }
+    : existsSync(PREINSTALLED)
+      ? { executablePath: PREINSTALLED }
+      : {};
+
+/** CI runners are slower than a dev box; let the settle time be raised there. */
+const SETTLE = Number(process.env.SMOKE_SETTLE ?? 3500);
+
+const browser = await chromium.launch(launchOptions);
 const page = await browser.newPage({ viewport: { width: 1680, height: 1000 } });
 
 // Pin the UI language so the selectors below are stable regardless of the
@@ -33,7 +49,7 @@ const check = (name, pass, detail = '') => {
 };
 
 await page.goto(URL, { waitUntil: 'networkidle' });
-await page.waitForTimeout(3500);
+await page.waitForTimeout(SETTLE);
 
 const metric = (label) =>
   page.evaluate((l) => {
@@ -194,7 +210,7 @@ check(
 const fresh = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 await fresh.addInitScript(() => window.localStorage.setItem('kreamet.lang', 'tr'));
 await fresh.goto(URL, { waitUntil: 'networkidle' });
-await fresh.waitForTimeout(2500);
+await fresh.waitForTimeout(SETTLE);
 const restored = (await fresh.locator('.langswitch button.active').textContent()).trim();
 const restoredLang = await fresh.evaluate(() => document.documentElement.lang);
 check(
