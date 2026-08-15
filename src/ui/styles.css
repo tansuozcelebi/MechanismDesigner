@@ -708,48 +708,24 @@ table.picklist tbody tr.selected td {
   flex: none;
 }
 
-<<<<<<< HEAD
 .sitenav-container {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
+  min-width: 0;
 }
 
-.brandtext,
-.wordmark {
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  white-space: nowrap;
+/* The lockup already carries the wordmark, so the bar needs no text brand. */
+.brand {
+  flex: none;
 }
 
-.brandtext {
-  font-size: 15px;
-  margin: 0;
-}
-
-/* The two-tone split of the mark: gunmetal "KREA", blue "MET". */
-.krea {
-  color: #dbe3ee;
-}
-
-.kreamet {
-  background: linear-gradient(90deg, #ffffff 0%, #ffffff 57%, #2f8bee 57%, #2f8bee 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.met {
-  color: #2f8bee;
-=======
 /* The site header carries the same lockup as the designer, one size smaller. */
 .siteheader .logo {
   display: block;
   height: 28px;
   width: auto;
->>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
 }
 
 .sitenav {
@@ -780,13 +756,14 @@ table.picklist tbody tr.selected td {
   background: #1c1a15;
 }
 
-<<<<<<< HEAD
 .sitenav-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  margin-left: 16px;
+  /* Pushed to the right edge, so the language switch lands in the same place
+     on every page whether or not the designer's extras are present. */
+  margin-left: auto;
+  flex: none;
 }
 
 .sitenav-actions .badge {
@@ -798,27 +775,11 @@ table.picklist tbody tr.selected td {
   font-size: 12px;
 }
 
-.sitenav-actions .langswitch {
-  margin-left: auto;
-}
-
-.logofull {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.logotext {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-=======
 .herologo {
   display: block;
   width: 100%;
   max-width: 400px;
   height: auto;
->>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
 }
 
 .tagline {
