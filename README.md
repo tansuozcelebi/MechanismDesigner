@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 78 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (35 checks)
+npm test           # 94 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (46 checks)
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
 ```
@@ -24,18 +24,48 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (78) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 35-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (94) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 46-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
 bundles. It covers what unit tests cannot — crank dragging, screen↔world round-tripping, playback,
 the debug overlay, canvas-edge clipping, changing the link count, hovering, selecting and editing
-a bar, editing the target trajectory, changing a constraint, and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
+a bar, editing the target trajectory, changing a constraint, navigating to the About and reference
+pages, and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
 because CI runners are slower than a dev box, and `CHROMIUM` can point the script at a specific
 browser binary; otherwise it falls back to whatever Playwright installed.
 
 ---
+
+## Pages
+
+The app is three hash routes, so every page has a real, linkable URL and the
+build works from a file path or a project subdirectory without server rewrites.
+
+| Route | Page |
+|---|---|
+| `#/designer` | The synthesis and simulation workbench (the landing route) |
+| `#/about` | Project and developer information, with the measured figures |
+| `#/theory` | **Mekanizma Tekniği / Mechanism Theory** — a full reference |
+
+The reference is a Markdown document per language, pulled in with a dynamic
+`?raw` import so it lands in its own chunk: it is the largest asset in the
+project and someone who only opens the designer never downloads it. It is
+rendered by a small Markdown subset parser that emits React nodes throughout —
+no `dangerouslySetInnerHTML` anywhere — with a filterable table of contents,
+scroll-spy and per-heading deep links (`#/theory/15-5-analitik-tavan`).
+
+The Turkish reference is the full-depth document: **5000 lines, 49 chapters**,
+covering structure and mobility, Assur groups, closed-form and numerical
+position analysis, branch continuity, velocity and acceleration, instant
+centres, Jacobians and singularities, transmission angle, coupler curves,
+cognates, all three synthesis tasks, Burmester theory, optimisation, curve
+comparison, dynamics, balancing, cams, gears, spatial and parallel mechanisms,
+interference and layering, tolerances, compliant mechanisms, worked examples, a
+mistake list, a design checklist, an FAQ, a glossary and a reference list. The
+English version covers the same structure more concisely; where they differ in
+detail, the Turkish text is the more complete one, and the document says so.
 
 ## A. Topology
 
@@ -343,9 +373,12 @@ src/
   interaction/ crankDrag (CanvasController: target handles · crank · select · pan)
   workers/     optimization.worker
   i18n/        translations (en + tr, key-parity enforced by the type system) · provider
+  app/         Shell (routing) · App (designer) · router (hash routes) · designPresets · exportDesign
+  pages/       AboutPage · TheoryPage
+  content/     about (developer + project facts) · theory.tr.md (5000 lines) · theory.en.md
   ui/          ControlPanel · MetricsPanel · LinkTable · DesignPanels (mechanism size, constraints,
-               target editor, selection inspector) · HoverHint · TorqueChart · LanguageSwitch ·
-               primitives
+               target editor, selection inspector) · HoverHint · Markdown · Logo · SiteNav ·
+               TorqueChart · LanguageSwitch · primitives
   utils/       math · units
 scripts/       optimize (--dyads N) · merge · refreshMetrics · genInitial · findSeed · smoke
 ```
@@ -379,6 +412,15 @@ unchanged. Only prose and labels are localised.
 
 The initial language follows an earlier explicit choice, else the browser's `navigator.language`,
 else English; the choice is stored in `localStorage` and also applied to `<html lang>`.
+
+## Brand
+
+The KREAMET mark is drawn as vector art (`src/ui/Logo.tsx`) rather than shipped
+as a bitmap: a K built from the things the app models — a gear, a fixed frame
+post, and two links meeting at a revolute bearing over a faint blueprint. One
+file serves the 26 px header and the 200 px About hero, it costs no extra
+request, and the gear teeth are generated rather than hand-placed so the pitch
+is exact.
 
 ## Export
 

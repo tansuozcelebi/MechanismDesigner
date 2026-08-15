@@ -420,6 +420,87 @@ check('switching back to English restores the original labels', backTitles[0] ==
 const late = errors.filter((e) => e.includes('Maximum update depth'));
 check('no update loop after language switching', late.length === 0, `${late.length} warning(s)`);
 
+// --- About and reference pages -----------------------------------------
+await page.click('.langswitch button:has-text("EN")');
+await page.waitForTimeout(300);
+
+await page.click('.sitenav a:has-text("About")');
+await page.waitForTimeout(1200);
+const aboutText = await page.locator('.page').textContent();
+check(
+  'the About page names the developer and links out',
+  /Tansu/.test(aboutText) && (await page.locator('.links a[href^="https://github.com"]').count()) > 0,
+  aboutText.replace(/\s+/g, ' ').slice(0, 80),
+);
+check(
+  'the About page shows measured project figures',
+  (await page.locator('.fact').count()) >= 4 && /11\.41/.test(aboutText),
+  `${await page.locator('.fact').count()} facts`,
+);
+check('the brand mark renders as vector art', (await page.locator('.logofull svg').count()) === 1);
+
+await page.click('.sitenav a:has-text("Mechanism Theory")');
+await page.waitForTimeout(3000);
+const tocCount = await page.locator('.toc nav a').count();
+const chapterCount = await page.locator('.md h1').count();
+check(
+  'the reference loads with a full table of contents',
+  tocCount > 150 && chapterCount > 40,
+  `${tocCount} sections, ${chapterCount} chapters`,
+);
+check(
+  'the reference renders tables and formula blocks',
+  (await page.locator('.md table').count()) > 15 && (await page.locator('.md pre').count()) > 30,
+  `${await page.locator('.md table').count()} tables, ${await page.locator('.md pre').count()} blocks`,
+);
+
+// Filtering the contents narrows it, and clearing restores it.
+await page.locator('.toc-head input').fill('singular');
+await page.waitForTimeout(300);
+const filtered = await page.locator('.toc nav a').count();
+check('the contents can be filtered', filtered > 0 && filtered < tocCount, `${filtered} of ${tocCount}`);
+await page.locator('.toc-head input').fill('');
+await page.waitForTimeout(300);
+
+// A contents entry is a real deep link.
+const firstHref = await page.locator('.toc nav a').nth(3).getAttribute('href');
+await page.goto(URL + firstHref, { waitUntil: 'networkidle' });
+await page.waitForTimeout(2000);
+const anchorId = firstHref.split('/').pop();
+const landed = await page.evaluate((id) => {
+  const el = document.getElementById(id);
+  return el ? Math.round(el.getBoundingClientRect().top) : null;
+}, anchorId);
+check(
+  'a contents entry deep-links to its section',
+  landed !== null && Math.abs(landed) < 200,
+  `#${anchorId} at y=${landed}`,
+);
+
+// The reference follows the language switch.
+const trFirst = await page.locator('.md h1').first().textContent();
+await page.click('.langswitch button:has-text("TR")');
+await page.waitForTimeout(3000);
+const trAfter = await page.locator('.md h1').first().textContent();
+check('the reference is bilingual', trAfter !== trFirst, `${trFirst} -> ${trAfter}`);
+check(
+  'the Turkish reference is the full-length one',
+  /5000/.test(await page.locator('.toc-meta').textContent()),
+  (await page.locator('.toc-meta').textContent()).trim(),
+);
+
+// Back to the designer, and the canvas must come back alive.
+await page.click('.langswitch button:has-text("EN")');
+await page.waitForTimeout(300);
+await page.click('.sitenav a:has-text("Designer")');
+await page.waitForTimeout(3000);
+check(
+  'returning to the designer restores a live mechanism',
+  await page.evaluate(() => Boolean(window.__viewer?.currentPose)),
+);
+const navErrors = errors.filter((e) => !e.includes('favicon'));
+check('navigating between pages raises no errors', navErrors.length === 0, navErrors.slice(0, 2).join('; '));
+
 await browser.close();
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
