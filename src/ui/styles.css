@@ -708,6 +708,7 @@ table.picklist tbody tr.selected td {
   flex: none;
 }
 
+<<<<<<< HEAD
 .sitenav-container {
   display: flex;
   align-items: center;
@@ -742,6 +743,13 @@ table.picklist tbody tr.selected td {
 
 .met {
   color: #2f8bee;
+=======
+/* The site header carries the same lockup as the designer, one size smaller. */
+.siteheader .logo {
+  display: block;
+  height: 28px;
+  width: auto;
+>>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
 }
 
 .sitenav {
@@ -772,6 +780,7 @@ table.picklist tbody tr.selected td {
   background: #1c1a15;
 }
 
+<<<<<<< HEAD
 .sitenav-actions {
   display: flex;
   align-items: center;
@@ -803,14 +812,24 @@ table.picklist tbody tr.selected td {
   display: flex;
   flex-direction: column;
   gap: 6px;
+=======
+.herologo {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+>>>>>>> f07a5670bdbcf55777096fc0d8b4e51db5e70c05
 }
 
 .tagline {
   color: var(--text-dim);
   letter-spacing: 0.34em;
   font-weight: 600;
+  font-size: 10px;
   border-top: 1px solid var(--border);
-  padding-top: 6px;
+  padding-top: 8px;
+  margin-top: 10px;
+  max-width: 400px;
 }
 
 /* --------------------------- page scaffolding --------------------------- */
