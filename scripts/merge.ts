@@ -6,10 +6,15 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { evaluateDesign } from '../src/synthesis/objective';
-import { arrayToDesign, buildGeometry } from '../src/mechanism/mechanism';
-import { DESIGN_KEYS } from '../src/mechanism/types';
+import { buildGeometry } from '../src/mechanism/mechanism';
+import { defaultSpec, groundJointId, paramLayout } from '../src/mechanism/spec';
 import { CONFIG } from '../src/mechanism/config';
-import { TOPOLOGY } from '../src/mechanism/topology';
+import { topologyOf } from '../src/mechanism/topology';
+
+const DYADS = Number(process.env.KREAMET_DYADS ?? 3);
+const SPEC = defaultSpec(DYADS);
+const LAYOUT = paramLayout(SPEC);
+const TOPOLOGY = topologyOf(SPEC);
 
 const [outPath, ...inputs] = process.argv.slice(2);
 if (!outPath || inputs.length === 0) {
@@ -43,13 +48,14 @@ console.log(`Merged ${all.length} candidates from ${inputs.length} runs -> ${dis
 const solutions = distinct.map((c, idx) => {
   const m = evaluateDesign(c.designArray, {
     level: 'fine',
+    spec: SPEC,
     computeSigma: true,
     computeGravity: true,
   });
-  const geo = buildGeometry(arrayToDesign(c.designArray));
+  const geo = buildGeometry(SPEC, c.designArray);
   const design: Record<string, number> = {};
-  DESIGN_KEYS.forEach((k, i) => {
-    design[k] = +c.designArray[i].toFixed(4);
+  LAYOUT.forEach((p, i) => {
+    design[p.label] = +c.designArray[i].toFixed(4);
   });
 
   console.log(
@@ -89,11 +95,12 @@ const solutions = distinct.map((c, idx) => {
       pathClosure_mm: m.pathClosure,
       peakGravityTorque_Nm: +m.peakGravityTorque.toFixed(5),
     },
-    fixedPivots: {
-      O2: { x: +geo.O2.x.toFixed(3), y: +geo.O2.y.toFixed(3) },
-      O4: { x: +geo.O4.x.toFixed(3), y: +geo.O4.y.toFixed(3) },
-      O6: { x: +geo.O6.x.toFixed(3), y: +geo.O6.y.toFixed(3) },
-    },
+    fixedPivots: Object.fromEntries(
+      geo.ground.map((p, i) => [
+        SPEC.labels?.[groundJointId(i)] ?? groundJointId(i),
+        { x: +p.x.toFixed(3), y: +p.y.toFixed(3) },
+      ]),
+    ),
     members: geo.members.map((mm) => ({
       link: mm.linkId,
       from: mm.from,
@@ -116,6 +123,7 @@ writeFileSync(
         weights: CONFIG.weights,
         scales: CONFIG.scales,
       },
+      dyads: DYADS,
       topology: {
         links: TOPOLOGY.links.length,
         joints: TOPOLOGY.joints.length,

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { CONFIG } from '../mechanism/config';
+import { CONFIG, snapshotConfig } from '../mechanism/config';
+import { paramCount, type MechanismSpec } from '../mechanism/spec';
+import type { TargetCurve } from '../synthesis/targetCurve';
 import type { SolutionSummary, WorkerResponse } from '../workers/optimization.worker';
 import type { OptimizerProgress } from '../synthesis/optimizer';
 import { useT } from '../i18n';
@@ -8,15 +10,24 @@ import { Section, num } from './primitives';
 /**
  * Synthesis control (brief §27, §28).  The worker keeps the render thread free,
  * so the mechanism keeps animating at 60 FPS while the optimiser runs.
+ *
+ * The spec, the target curve and the constraint settings are all sent with the
+ * request: the worker is a separate module instance with its own CONFIG and its
+ * own active target, so anything the user changed here has to be replayed there
+ * or the search would silently optimise against the shipped defaults.
  */
 export function OptimizerPanel({
+  spec,
+  target,
   onSelect,
   onSolutions,
   storedSolutions,
   selectedIndex,
   source,
 }: {
-  onSelect: (x: number[], index: number, source: 'stored' | 'live') => void;
+  spec: MechanismSpec;
+  target: TargetCurve;
+  onSelect: (s: SolutionSummary, index: number, source: 'stored' | 'live') => void;
   onSolutions: (s: SolutionSummary[]) => void;
   storedSolutions: SolutionSummary[];
   selectedIndex: number;
@@ -64,7 +75,7 @@ export function OptimizerPanel({
         setRunning(false);
         setResult({ evaluations: msg.evaluations, elapsedMs: msg.elapsedMs });
         onSolutions(msg.solutions);
-        if (msg.solutions.length) onSelect(msg.solutions[0].x, 0, 'live');
+        if (msg.solutions.length) onSelect(msg.solutions[0], 0, 'live');
         worker.terminate();
         workerRef.current = null;
       } else {
@@ -82,6 +93,9 @@ export function OptimizerPanel({
       generations,
       localIterations: 300,
       runs,
+      spec,
+      target,
+      config: snapshotConfig(),
     });
   };
 
@@ -196,19 +210,31 @@ export function OptimizerPanel({
             c: CONFIG.samplesFine,
           })}
         </div>
+        <div className="note">
+          {t('opt.searchSpace', {
+            links: 2 + 2 * spec.dyads.length,
+            n: paramCount(spec),
+            target: target.name,
+          })}
+        </div>
       </Section>
 
       {storedSolutions.length > 0 && (
         <Section title={t('opt.bestTitle', { n: storedSolutions.length })}>
           <div className="note">
-            {t(source === 'stored' ? 'opt.sourceStored' : 'opt.sourceLive')}
+            {t(source === 'stored' ? 'opt.sourceStored' : 'opt.sourceLive', {
+              // The listed solutions carry their own spec: they may well be a
+              // different size from the mechanism currently on screen.
+              links: 2 + 2 * (storedSolutions[0]?.spec.dyads.length ?? spec.dyads.length),
+              target: target.name,
+            })}
           </div>
           <div className="solutions">
             {storedSolutions.map((s, i) => (
               <div
                 key={i}
                 className={`sol ${i === selectedIndex ? 'selected' : ''}`}
-                onClick={() => onSelect(s.x, i, source)}
+                onClick={() => onSelect(s, i, source)}
               >
                 <span className="rank">#{i + 1}</span>
                 <span>

@@ -1,5 +1,6 @@
 import { CONFIG } from '../mechanism/config';
-import { boundsArray, clampDesign } from '../mechanism/mechanism';
+import { boundsFor, clampParams } from '../mechanism/mechanism';
+import { DEFAULT_SPEC, type MechanismSpec } from '../mechanism/spec';
 import { BAND_ASSEMBLY, evaluateDesign, objectiveValue, type EvalLevel } from './objective';
 import { mulberry32, repairDesign, sampleFeasiblePopulation, trySampleFeasible } from './seeding';
 
@@ -16,6 +17,8 @@ export type OptimizerProgress = {
 };
 
 export type OptimizerOptions = {
+  /** Which mechanism family to search. Defaults to the canonical 8-bar. */
+  spec?: MechanismSpec;
   seed?: number;
   population?: number;
   generations?: number;
@@ -48,6 +51,7 @@ export type OptimizerResult = {
  * global candidate.
  */
 export function optimize(options: OptimizerOptions = {}): OptimizerResult {
+  const spec = options.spec ?? DEFAULT_SPEC;
   const seed = options.seed ?? 20260814;
   const rng = mulberry32(seed);
   const NP = options.population ?? CONFIG.optimizer.dePopulation;
@@ -59,7 +63,7 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
     medium: Math.floor(GEN * 0.55),
     fine: Math.floor(GEN * 0.85),
   };
-  const bounds = boundsArray();
+  const bounds = boundsFor(spec);
   const dim = bounds.length;
 
   let evaluations = 0;
@@ -76,16 +80,16 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
     message: 'Constructing feasible seed population…',
   });
 
-  const pop: number[][] = sampleFeasiblePopulation(NP, rng);
+  const pop: number[][] = sampleFeasiblePopulation(spec, NP, rng);
   // Top up with plain random draws if the constructive sampler came up short.
   while (pop.length < NP) {
-    pop.push(bounds.map(([lo, hi]) => lo + rng() * (hi - lo)));
+    pop.push(bounds.map(([lo, hi]: [number, number]) => lo + rng() * (hi - lo)));
   }
 
   let level: EvalLevel = 'coarse';
   const fit = pop.map((x) => {
     evaluations++;
-    return objectiveValue(x, level);
+    return objectiveValue(x, level, spec);
   });
 
   const archive: Candidate[] = [];
@@ -114,7 +118,7 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
       level = nextLevel;
       for (let i = 0; i < NP; i++) {
         evaluations++;
-        fit[i] = objectiveValue(pop[i], level);
+        fit[i] = objectiveValue(pop[i], level, spec);
       }
     }
 
@@ -145,9 +149,9 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
         }
       }
 
-      let cand = clampDesign(trial);
+      let cand = clampParams(spec, trial);
       evaluations++;
-      let Jt = objectiveValue(cand, level);
+      let Jt = objectiveValue(cand, level, spec);
 
       // Lamarckian repair, applied ONLY as a rescue.  Projecting every
       // offspring onto the feasible dyad geometry pins two coordinates to
@@ -155,10 +159,10 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
       // measurably stalled the search.  Repairing only the offspring that
       // failed to assemble keeps the feasible exploration untouched.
       if (Jt >= BAND_ASSEMBLY) {
-        const repaired = repairDesign(cand, 38);
+        const repaired = repairDesign(spec, cand, 38);
         if (repaired) {
           evaluations++;
-          const Jr = objectiveValue(repaired, level);
+          const Jr = objectiveValue(repaired, level, spec);
           if (Jr < Jt) {
             cand = repaired;
             Jt = Jr;
@@ -177,11 +181,11 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
     if (g > 0 && g % 25 === 0) {
       const order = fit.map((f, i) => [f, i] as [number, number]).sort((a, b) => b[0] - a[0]);
       for (let k = 0; k < Math.min(4, NP); k++) {
-        const cand = trySampleFeasible(rng);
+        const cand = trySampleFeasible(spec, rng);
         if (!cand) continue;
         const idx = order[k][1];
         evaluations++;
-        const Jc = objectiveValue(cand, level);
+        const Jc = objectiveValue(cand, level, spec);
         if (Jc < fit[idx]) {
           pop[idx] = cand;
           fit[idx] = Jc;
@@ -223,7 +227,7 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
       cand.x,
       (x) => {
         evaluations++;
-        return objectiveValue(x, 'fine');
+        return objectiveValue(x, 'fine', spec);
       },
       bounds,
       localIters,
@@ -236,7 +240,7 @@ export function optimize(options: OptimizerOptions = {}): OptimizerResult {
   // ---- Final scoring at full resolution ----------------------------------
   const finalPool = (refined.length ? refined : seeds)
     .map((c) => {
-      const m = evaluateDesign(c.x, { level: 'fine', computeGravity: true });
+      const m = evaluateDesign(c.x, { level: 'fine', spec, computeGravity: true });
       evaluations++;
       return { x: c.x, J: m.J };
     })

@@ -19,6 +19,10 @@ export const THEME = {
   linkCollide: 0xe05252,
   centreLine: 0x9fb3cc,
 
+  selection: 0xffd166,
+  targetHandle: 0x7fd1ff,
+  targetHandleActive: 0xffd166,
+
   led: 0xff2d55,
   ledGlow: 0xff5c7a,
   trail: 0xff4d6d,

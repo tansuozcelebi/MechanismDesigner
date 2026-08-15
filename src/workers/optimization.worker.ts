@@ -1,7 +1,10 @@
 /// <reference lib="webworker" />
 import { optimize, type OptimizerProgress } from '../synthesis/optimizer';
-import { evaluateDesign } from '../synthesis/objective';
-import { buildGeometry, arrayToDesign } from '../mechanism/mechanism';
+import { evaluateDesign, setTarget } from '../synthesis/objective';
+import { buildGeometry } from '../mechanism/mechanism';
+import type { MechanismSpec } from '../mechanism/spec';
+import { applyConfig, type ConfigPatch } from '../mechanism/config';
+import type { TargetCurve } from '../synthesis/targetCurve';
 
 /**
  * Synthesis runs here so the render thread keeps 60 FPS (brief §27 / §54).
@@ -17,6 +20,12 @@ export type WorkerRequest =
       generations: number;
       localIterations: number;
       runs: number;
+      /** Which mechanism family to search. */
+      spec: MechanismSpec;
+      /** Target curve to fit. */
+      target: TargetCurve;
+      /** Constraint settings, so the worker optimises under the same limits. */
+      config: ConfigPatch;
     }
   | { type: 'cancel' };
 
@@ -36,13 +45,14 @@ export type SolutionSummary = {
   collisionFrames: number;
   layerCount: number;
   peakGravityTorque: number;
+  spec: MechanismSpec;
   validFrames: number;
   frames: number;
   fullRotation: boolean;
   maxLoopClosureError: number;
   pathClosure: number;
   memberLengths: { link: string; from: string; to: string; length: number }[];
-  fixedPivots: { O2: [number, number]; O4: [number, number]; O6: [number, number] };
+  fixedPivots: [number, number][];
 };
 
 export type WorkerResponse =
@@ -66,6 +76,13 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   cancelled = false;
   const started = Date.now();
 
+  // The worker owns its own module instances, so the constraints and the target
+  // must be replayed here or it would optimise against the shipped defaults
+  // while the UI displays something else.
+  applyConfig(msg.config);
+  setTarget(msg.target);
+  const spec = msg.spec;
+
   try {
     const pool: { x: number[]; J: number }[] = [];
     let evaluations = 0;
@@ -73,6 +90,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
     for (let r = 0; r < msg.runs; r++) {
       if (cancelled) break;
       const res = optimize({
+        spec,
         seed: msg.seed + r * 7919,
         population: msg.population,
         generations: msg.generations,
@@ -97,8 +115,8 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
     }
 
     const solutions: SolutionSummary[] = distinct.map((c, i) => {
-      const m = evaluateDesign(c.x, { level: 'fine', computeSigma: true, computeGravity: true });
-      const geo = buildGeometry(arrayToDesign(c.x));
+      const m = evaluateDesign(c.x, { level: 'fine', spec, computeSigma: true, computeGravity: true });
+      const geo = buildGeometry(spec, c.x);
       return {
         rank: i + 1,
         x: c.x,
@@ -120,17 +138,14 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
         fullRotation: m.fullRotation,
         maxLoopClosureError: m.maxLoopClosureError,
         pathClosure: m.pathClosure,
+        spec,
         memberLengths: geo.members.map((mm) => ({
           link: mm.linkId,
           from: String(mm.from),
           to: String(mm.to),
           length: mm.length,
         })),
-        fixedPivots: {
-          O2: [geo.O2.x, geo.O2.y],
-          O4: [geo.O4.x, geo.O4.y],
-          O6: [geo.O6.x, geo.O6.y],
-        },
+        fixedPivots: geo.ground.map((p) => [p.x, p.y] as [number, number]),
       };
     });
 

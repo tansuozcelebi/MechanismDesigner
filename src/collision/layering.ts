@@ -1,9 +1,11 @@
 import { CONFIG } from '../mechanism/config';
+import { GROUND_ID } from '../mechanism/spec';
 import type { Geometry } from '../mechanism/mechanism';
-import { JOINTS, linksShareJoint } from '../mechanism/topology';
+import { linksShareJoint, topologyOf } from '../mechanism/topology';
 import type { LinkId, Pose } from '../mechanism/types';
 import { segmentSegmentDistance } from './segmentDistance';
 import { poseSegments } from './collisionDetector';
+import { movingLinks } from '../dynamics/massProperties';
 
 /**
  * Assembly layering.
@@ -29,8 +31,6 @@ import { poseSegments } from './collisionDetector';
  * ordering is fast and, at this size, essentially always optimal.
  */
 
-const MOVING: Exclude<LinkId, 'ground'>[] = ['L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8'];
-
 export type InterferenceGraph = {
   /** adjacency[a][b] = true when bodies a and b sweep within `clearance`. */
   adjacency: Map<LinkId, Set<LinkId>>;
@@ -48,6 +48,8 @@ export function interferenceGraph(
   poses: Pose[],
   clearance: number = CONFIG.linkWidth,
 ): InterferenceGraph {
+  const topo = topologyOf(geo.spec);
+  const MOVING = movingLinks(geo);
   const adjacency = new Map<LinkId, Set<LinkId>>();
   for (const id of MOVING) adjacency.set(id, new Set());
   const closest = new Map<string, number>();
@@ -62,7 +64,7 @@ export function interferenceGraph(
         const A = segs[i];
         const B = segs[j];
         if (A.linkId === B.linkId) continue;
-        if (linksShareJoint(A.linkId, B.linkId)) continue;
+        if (linksShareJoint(topo, A.linkId, B.linkId)) continue;
         const d = segmentSegmentDistance(A.a, A.b, B.a, B.b);
         const key = A.linkId < B.linkId ? `${A.linkId}|${B.linkId}` : `${B.linkId}|${A.linkId}`;
         const prev = closest.get(key);
@@ -93,8 +95,11 @@ export type LayerPlan = {
 /** Greedy graph colouring in Welsh-Powell order (highest degree first). */
 export function assignLayers(
   graph: InterferenceGraph,
+  geo: Geometry,
   plateThickness: number = CONFIG.linkWidth * 0.5,
 ): LayerPlan {
+  const MOVING = movingLinks(geo);
+  const topo = topologyOf(geo.spec);
   const order = [...MOVING].sort(
     (a, b) => (graph.adjacency.get(b)?.size ?? 0) - (graph.adjacency.get(a)?.size ?? 0),
   );
@@ -109,16 +114,16 @@ export function assignLayers(
     while (used.has(k)) k++;
     layer[id] = k;
   }
-  layer.ground = 0;
+  layer[GROUND_ID] = 0;
 
   const layerCount = Math.max(...MOVING.map((id) => layer[id])) + 1;
 
   // Pin span: a revolute pair between two bodies must bridge their layers.
   let maxPinSpan = 0;
-  for (const j of JOINTS) {
+  for (const j of topo.joints) {
     const [a, b] = j.links;
-    const la = a === 'ground' ? 0 : layer[a];
-    const lb = b === 'ground' ? 0 : layer[b];
+    const la = layer[a] ?? 0;
+    const lb = layer[b] ?? 0;
     maxPinSpan = Math.max(maxPinSpan, Math.abs(la - lb));
   }
 
@@ -152,7 +157,7 @@ export function buildability(
   clearance: number = CONFIG.linkWidth,
 ): BuildabilityReport {
   const graph = interferenceGraph(geo, poses, clearance);
-  const plan = assignLayers(graph);
+  const plan = assignLayers(graph, geo);
   const extraLayers = Math.max(0, plan.layerCount - 2);
   const extraSpan = Math.max(0, plan.maxPinSpan - 1);
   const penalty = (extraLayers / 2) ** 2 + 0.5 * (extraSpan / 2) ** 2;

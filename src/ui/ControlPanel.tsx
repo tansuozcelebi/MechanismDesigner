@@ -1,7 +1,6 @@
 import { CONFIG } from '../mechanism/config';
-import type { DesignVector } from '../mechanism/types';
-import { DESIGN_KEYS } from '../mechanism/types';
-import { BOUNDS, designToArray } from '../mechanism/mechanism';
+import { paramEntries, type Geometry } from '../mechanism/mechanism';
+import { groundJointId } from '../mechanism/spec';
 import type { DebugOptions } from '../rendering/DebugRenderer';
 import { useT } from '../i18n';
 import { Check, Section, Slider, num } from './primitives';
@@ -152,30 +151,26 @@ export function MotorPanel({
   );
 }
 
-/** Live design vector, editable (brief §51 formatting: two decimals). */
+/**
+ * Live design vector, editable (brief §51 formatting: two decimals).
+ *
+ * The rows come from the spec's parameter layout rather than a fixed key list,
+ * so the panel follows the mechanism whatever size it is; the canonical 8-bar
+ * still shows its historical names (phi6, lAB, c3r, …).
+ */
 export function DesignPanel({
-  design,
+  geo,
   label,
-  onChange,
+  onParam,
   onExport,
 }: {
-  design: DesignVector;
+  geo: Geometry;
   label: string;
-  onChange: (d: DesignVector) => void;
+  onParam: (index: number, value: number) => void;
   onExport: () => void;
 }) {
   const t = useT();
-  const arr = designToArray(design);
-
-  const update = (i: number, v: number) => {
-    const next = arr.slice();
-    next[i] = v;
-    const d: DesignVector = { ...design };
-    DESIGN_KEYS.forEach((k, j) => {
-      (d as unknown as Record<string, number>)[k] = next[j];
-    });
-    onChange(d);
-  };
+  const entries = paramEntries(geo);
 
   return (
     <Section title={t('design.title', { label })} defaultOpen={false}>
@@ -186,71 +181,47 @@ export function DesignPanel({
           c: CONFIG.crankLength,
         })}
       </div>
-      {DESIGN_KEYS.map((k, i) => {
-        const [lo, hi] = BOUNDS[k];
-        const isAngle = k === 'phi6' || k.endsWith('a');
-        return (
-          <Slider
-            key={k}
-            label={`${k} (${isAngle ? '°' : 'mm'})`}
-            value={arr[i]}
-            min={lo}
-            max={hi}
-            step={0.5}
-            digits={2}
-            onChange={(v) => update(i, v)}
-          />
-        );
-      })}
+      {entries.map((p, i) => (
+        <Slider
+          key={p.key}
+          label={`${p.label} (${p.unit})`}
+          value={p.value}
+          min={p.min}
+          max={p.max}
+          step={0.5}
+          digits={2}
+          onChange={(v) => onParam(i, v)}
+        />
+      ))}
       <button onClick={onExport}>{t('design.export')}</button>
     </Section>
   );
 }
 
 /** Final numeric report (brief §51). */
-export function GeometryReport({
-  design,
-  pivots,
-  members,
-  label,
-}: {
-  design: DesignVector;
-  pivots: {
-    O2: { x: number; y: number };
-    O4: { x: number; y: number };
-    O6: { x: number; y: number };
-  };
-  members: { linkId: string; from: string; to: string; length: number }[];
-  label: string;
-}) {
+export function GeometryReport({ geo, label }: { geo: Geometry; label: string }) {
   const t = useT();
+  const nameOf = (id: string) => geo.spec.labels?.[id] ?? id;
+  const angles = paramEntries(geo).filter((p) => p.unit === '°');
 
   return (
     <Section title={t('design.geometryTitle', { label })} defaultOpen={false}>
       <table>
         <tbody>
-          <tr>
-            <td>O2</td>
-            <td>
-              ({pivots.O2.x.toFixed(2)}, {pivots.O2.y.toFixed(2)})
-            </td>
-          </tr>
-          <tr>
-            <td>O4</td>
-            <td>
-              ({pivots.O4.x.toFixed(2)}, {pivots.O4.y.toFixed(2)})
-            </td>
-          </tr>
-          <tr>
-            <td>O6</td>
-            <td>
-              ({pivots.O6.x.toFixed(2)}, {pivots.O6.y.toFixed(2)})
-            </td>
-          </tr>
-          <tr>
-            <td>φ₆</td>
-            <td>{design.phi6.toFixed(2)}°</td>
-          </tr>
+          {geo.ground.map((p, i) => (
+            <tr key={i}>
+              <td>{nameOf(groundJointId(i))}</td>
+              <td>
+                ({p.x.toFixed(2)}, {p.y.toFixed(2)})
+              </td>
+            </tr>
+          ))}
+          {angles.map((p) => (
+            <tr key={p.key}>
+              <td>{p.label}</td>
+              <td>{p.value.toFixed(2)}°</td>
+            </tr>
+          ))}
         </tbody>
       </table>
       <table>
@@ -261,10 +232,10 @@ export function GeometryReport({
           </tr>
         </thead>
         <tbody>
-          {members.map((m) => (
+          {geo.members.map((m) => (
             <tr key={`${m.linkId}-${m.from}-${m.to}`}>
               <td>
-                {m.linkId}: {m.from}–{m.to}
+                {nameOf(m.linkId)}: {nameOf(String(m.from))}–{nameOf(String(m.to))}
               </td>
               <td>{num(m.length, 2)}</td>
             </tr>

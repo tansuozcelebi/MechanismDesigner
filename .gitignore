@@ -2,3 +2,10 @@ node_modules/
 dist/
 *.local
 .DS_Store
+
+# TypeScript build artifacts: sources are .ts and must never be shadowed by
+# stale compiled copies next to them.
+src/**/*.js
+tests/**/*.js
+scripts/**/*.js
+!scripts/*.mjs

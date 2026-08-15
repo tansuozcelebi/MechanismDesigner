@@ -1,70 +1,75 @@
-import { CONFIG } from '../mechanism/config';
+import { CONFIG, snapshotConfig } from '../mechanism/config';
 import { buildGeometry } from '../mechanism/mechanism';
-import { TOPOLOGY } from '../mechanism/topology';
-import type { DesignVector } from '../mechanism/types';
+import { topologyOf } from '../mechanism/topology';
+import { groundJointId, type MechanismSpec } from '../mechanism/spec';
 import type { Metrics } from '../synthesis/objective';
-import { DESIGN_KEYS } from '../mechanism/types';
-import { designToArray } from '../mechanism/mechanism';
+import { exportTarget, type TargetCurve } from '../synthesis/targetCurve';
 import { APP_NAME } from '../i18n/translations';
 
 /**
- * Design export (brief §52) — the handoff format for later CAD generation.
- * Everything a downstream CAD script needs: pivot coordinates, every printed
- * member length, the layer each body sits in, and the measured performance.
+ * Design export — the handoff format for later CAD generation.
+ *
+ * Deliberately self-contained: the mechanism spec, the constraint settings and
+ * the target curve all travel with the geometry, because a parameter vector is
+ * meaningless without the topology it indexes and the limits it was optimised
+ * under.  Re-importing this file reproduces the design exactly.
  */
 export function buildExportJson(
-  design: DesignVector,
+  spec: MechanismSpec,
+  params: number[],
   metrics: Metrics | null,
   label: string,
+  target: TargetCurve,
 ): Record<string, unknown> {
-  const geo = buildGeometry(design);
-  const arr = designToArray(design);
+  const geo = buildGeometry(spec, params);
+  const topo = topologyOf(spec);
 
-  const designRecord: Record<string, number> = {};
-  DESIGN_KEYS.forEach((k, i) => {
-    designRecord[k] = +arr[i].toFixed(4);
+  const designVector: Record<string, number> = {};
+  geo.layout.forEach((p, i) => {
+    designVector[p.label] = +params[i].toFixed(4);
+  });
+
+  const fixedJoints: Record<string, { x: number; y: number }> = {};
+  geo.ground.forEach((p, i) => {
+    const id = groundJointId(i);
+    fixedJoints[spec.labels?.[id] ?? id] = { x: +p.x.toFixed(4), y: +p.y.toFixed(4) };
   });
 
   return {
-    schema: 'heart-linkage-design/1',
+    schema: 'kreamet-design/2',
     application: APP_NAME,
     label,
     exportedAt: new Date().toISOString(),
-    target: {
-      type: 'heart',
-      width_mm: CONFIG.targetWidth,
-      height_mm: CONFIG.targetHeight,
-      equation: {
-        x: '16 sin^3(t)',
-        y: '13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)',
-        t: '[0, 2*pi)',
-        note: 'sampled then affinely rescaled so the bounding box is exactly width x height',
-      },
-    },
+
+    target: exportTarget(target),
+
     topology: {
-      family: 'planar 8-bar, three fixed pivots, three RRR Assur dyads in series',
-      links: TOPOLOGY.links.length,
-      joints: TOPOLOGY.joints.length,
-      mobility: TOPOLOGY.mobility,
-      independentLoops: TOPOLOGY.loopCount,
-      loops: TOPOLOGY.loops,
-      graph: TOPOLOGY.links.map((l) => ({ id: l.id, role: l.role, joints: l.jointIds })),
+      family: 'planar chain: one crank plus N RRR Assur dyads in series',
+      dyads: spec.dyads.length,
+      links: topo.links.length,
+      joints: topo.joints.length,
+      mobility: topo.mobility,
+      independentLoops: topo.loopCount,
+      loops: topo.loops,
+      spec,
+      graph: topo.links.map((l) => ({ id: l.id, role: l.role, joints: l.jointIds })),
     },
+
     motor: {
-      inputJoint: 'O2',
+      inputJoint: spec.labels?.G0 ?? groundJointId(0),
       crankLength_mm: CONFIG.crankLength,
-      inputLink: 'L2',
+      inputLink: 'crank',
     },
-    fixedJoints: {
-      O2: { x: +geo.O2.x.toFixed(4), y: +geo.O2.y.toFixed(4) },
-      O4: { x: +geo.O4.x.toFixed(4), y: +geo.O4.y.toFixed(4) },
-      O6: { x: +geo.O6.x.toFixed(4), y: +geo.O6.y.toFixed(4) },
-    },
-    designVector: designRecord,
-    links: TOPOLOGY.links
+
+    fixedJoints,
+    designVector,
+    designArray: params.map((v) => +v.toFixed(4)),
+
+    links: topo.links
       .filter((l) => l.id !== 'ground')
       .map((l) => ({
         id: l.id,
+        label: l.label,
         role: l.role,
         joints: l.jointIds,
         markers: l.markerIds ?? [],
@@ -73,6 +78,7 @@ export function buildExportJson(
           .filter((m) => m.linkId === l.id)
           .map((m) => ({ from: m.from, to: m.to, length_mm: +m.length.toFixed(4) })),
       })),
+
     manufacturing: {
       linkWidth_mm: CONFIG.linkWidth,
       lineDensity_kg_per_mm: CONFIG.lineDensity,
@@ -81,6 +87,7 @@ export function buildExportJson(
       maxPinSpan_layers: metrics?.maxPinSpan ?? null,
       stackThickness_mm: metrics?.stackThickness ?? null,
     },
+
     optimizedMetrics: metrics
       ? {
           objective: +metrics.J.toFixed(6),
@@ -89,7 +96,7 @@ export function buildExportJson(
           maxError_mm: +metrics.match.maxError.toFixed(4),
           actualWidth_mm: +metrics.width.toFixed(3),
           actualHeight_mm: +metrics.height.toFixed(3),
-          heartMatchPercent: +metrics.heartMatchPercent.toFixed(2),
+          matchPercent: +metrics.heartMatchPercent.toFixed(2),
           fullRotation: metrics.fullRotation,
           validFrames: metrics.validFrames,
           frames: metrics.frames,
@@ -104,8 +111,9 @@ export function buildExportJson(
           objectiveTerms: metrics.terms,
         }
       : null,
-    objectiveWeights: CONFIG.weights,
-    objectiveScales: CONFIG.scales,
+
+    /** Full constraint set in force when this design was produced. */
+    settings: snapshotConfig(),
   };
 }
 
@@ -119,4 +127,22 @@ export function downloadJson(data: unknown, filename: string): void {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Read a user-picked file as text. */
+export function readFileText(accept = 'application/json,.json'): Promise<{ name: string; text: string } | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return resolve(null);
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, text: String(reader.result ?? '') });
+      reader.onerror = () => resolve(null);
+      reader.readAsText(file);
+    };
+    input.click();
+  });
 }

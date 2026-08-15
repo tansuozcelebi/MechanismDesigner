@@ -15,17 +15,18 @@ export const APP_NAME = 'KREAMET';
 
 export const en = {
   /* ---- shell ---- */
-  'app.subtitle': '8-bar · 1-DOF · single motor at O2 · target {w}×{h} mm',
+  'app.subtitle': '{n}-bar · 1-DOF · single motor at O2 · target {w}×{h} mm',
   'app.loadInitial': 'Load Initial Guess',
   'app.export': 'Export JSON',
   'app.label.optimized': 'OPTIMIZED RESULT',
   'app.label.initial': 'INITIAL GUESS',
   'app.label.manual': 'MANUAL EDIT',
+  'app.label.sampled': 'SAMPLED START',
   'app.lang.aria': 'Language',
 
   /* ---- canvas overlay ---- */
   'canvas.scale': '{n} mm · view {h} mm tall',
-  'canvas.legend.target': 'target heart',
+  'canvas.legend.target': 'target curve',
   'canvas.legend.led': 'LED path',
   'canvas.legend.crank': 'crank',
   'canvas.legend.output': 'output',
@@ -170,7 +171,7 @@ export const en = {
   'topology.title': 'Topology',
   'topology.mobility': 'Mobility = {n}',
   'topology.loops': '{n} independent loops',
-  'topology.counts': '8 links / 10 joints',
+  'topology.counts': '{n} links / {j} joints',
   'topology.note':
     'Solved as three RRR Assur dyads in series — every joint comes from a closed-form circle–circle intersection, so no Newton iteration is used anywhere.',
 
@@ -196,9 +197,12 @@ export const en = {
   'opt.finished': '{n} evaluations in {s} s',
   'opt.note':
     'Differential Evolution (rand/1 + current-to-best/1) with a constructive feasible seed population, then bounded Nelder–Mead refinement. Runs in a Web Worker so the canvas keeps animating. Sampling refines {a} → {b} → {c} frames per revolution.',
+  'opt.searchSpace': 'Searching {links}-bar mechanisms · {n} design variables · target "{target}".',
   'opt.bestTitle': 'Best Mechanisms ({n})',
-  'opt.sourceStored': 'Loaded from the offline optimisation run shipped with the app.',
-  'opt.sourceLive': 'From the optimisation you just ran in this browser.',
+  'opt.sourceStored':
+    'Loaded from the offline optimisation run shipped with the app ({links}-bar, heart target). Selecting one also switches the mechanism to the size it was optimised for.',
+  'opt.sourceLive':
+    'From the optimisation you just ran in this browser ({links}-bar, target “{target}”).',
   'opt.detail.score': 'Score J',
   'opt.detail.rms': 'RMS error',
   'opt.detail.maxError': 'Max error',
@@ -210,23 +214,100 @@ export const en = {
   'opt.detail.layers': 'Assembly layers',
   'opt.detail.peakTorque': 'Peak gravity torque',
   'opt.detail.fullRotation': 'Full rotation',
+
+  /* ---- mechanism size ---- */
+  'mech.title': 'Mechanism',
+  'mech.linksLabel': 'Link count (including the frame). Every option is 1-DOF by construction.',
+  'mech.choiceTip': '{links} links · {joints} joints · {dyads} dyad(s)',
+  'mech.dyads': '{n} dyad(s)',
+  'mech.params': '{n} parameters',
+  'mech.note':
+    'One crank plus N RRR Assur dyads solved in series. A dyad is a zero-mobility group, so adding one cannot change the degree of freedom: n = 2 + 2N links, j = 1 + 3N joints, M = 1 for every N.',
+  'mech.resetWarning':
+    'Changing the link count replaces the design vector — it indexes a different topology, so the current lengths cannot carry over.',
+
+  /* ---- constraints ---- */
+  'limits.title': 'Constraints & Weights',
+  'limits.lmin': 'Min link length',
+  'limits.lmax': 'Max link length',
+  'limits.crank': 'Crank length |O2 A|',
+  'limits.o2o4': 'Frame spacing |O2 O4|',
+  'limits.o4o6': 'Frame spacing |O4 O6|',
+  'limits.linkWidth': 'Bar width (interference)',
+  'limits.muReject': 'Reject below transmission angle',
+  'limits.targetW': 'Target width',
+  'limits.targetH': 'Target height',
+  'limits.weightsTitle': 'Objective weights',
+  'limits.w1': 'w₁ curve',
+  'limits.w2': 'w₂ size',
+  'limits.w3': 'w₃ closure',
+  'limits.w4': 'w₄ singularity',
+  'limits.w5': 'w₅ buildability',
+  'limits.w6': 'w₆ ratio',
+  'limits.w7': 'w₇ gravity',
+  'limits.reset': 'Restore defaults',
+  'limits.note':
+    'Limits apply to the next evaluation; they change what counts as valid from here on rather than altering the design in hand. Shipped defaults: {lmin}–{lmax} mm.',
+
+  /* ---- target editor ---- */
+  'targetEdit.title': 'Target Trajectory',
+  'targetEdit.heart': 'Heart',
+  'targetEdit.circle': 'Circle',
+  'targetEdit.import': 'Import',
+  'targetEdit.export': 'Export',
+  'targetEdit.editMode': 'Edit points on canvas',
+  'targetEdit.hint':
+    'Drag a handle to move it · Shift-click empty space to add · Alt-click a handle to delete',
+  'targetEdit.smooth': 'Smooth (spline)',
+  'targetEdit.normalize': 'Fit to size',
+  'targetEdit.name': 'Name',
+  'targetEdit.points': 'Control points',
+  'targetEdit.size': 'Actual size',
+  'targetEdit.normalizeNote': 'Rescaled to exactly {w} × {h} mm.',
+  'targetEdit.importOk': 'Imported "{name}" with {n} control points.',
+  'targetEdit.importFail': 'Import failed: {msg}',
+  'targetEdit.frameNote':
+    'While editing, the target is drawn in its own coordinates so each handle sits where you drag it. Turn editing off to see it placed onto the LED path, which is how the error is measured.',
+
+  /* ---- inspector ---- */
+  'inspect.title': 'Selection',
+  'inspect.empty': 'Click a bar or a joint on the canvas to inspect and edit it.',
+  'inspect.link': 'LINK',
+  'inspect.joint': 'JOINT',
+  'inspect.groundPivot': 'GROUND PIVOT',
+  'inspect.layer': 'layer {n}',
+  'inspect.member': 'Member',
+  'inspect.memberLength': 'Member length',
+  'inspect.dyad': 'Dyad',
+  'inspect.position': 'Position',
+  'inspect.pairs': 'Revolute pairs here',
+  'inspect.connects': 'Connects',
+  'inspect.editable': 'Design variables controlling this body:',
+  'inspect.controlledBy': 'Design variables placing this point:',
+  'inspect.derived':
+    'Derived: this position is determined by the mechanism at the current motor angle, not set directly.',
+  'inspect.derivedMember':
+    'This member length follows from the law of cosines on the two variables above.',
+  'inspect.crankNote':
+    'The crank length is a frame constraint rather than a design variable, so it is edited with the other limits.',
 } as const;
 
 export type TranslationKey = keyof typeof en;
 
 export const tr: Record<TranslationKey, string> = {
   /* ---- kabuk ---- */
-  'app.subtitle': '8 kollu · 1 SD · O2’de tek motor · hedef {w}×{h} mm',
+  'app.subtitle': '{n} kollu · 1 SD · O2’de tek motor · hedef {w}×{h} mm',
   'app.loadInitial': 'Başlangıç Tahminini Yükle',
   'app.export': 'JSON Dışa Aktar',
   'app.label.optimized': 'OPTİMİZE SONUÇ',
   'app.label.initial': 'BAŞLANGIÇ TAHMİNİ',
   'app.label.manual': 'ELLE DÜZENLENDİ',
+  'app.label.sampled': 'ÖRNEKLENEN BAŞLANGIÇ',
   'app.lang.aria': 'Dil',
 
   /* ---- tuval bindirmesi ---- */
   'canvas.scale': '{n} mm · görüş {h} mm',
-  'canvas.legend.target': 'hedef kalp',
+  'canvas.legend.target': 'hedef eğri',
   'canvas.legend.led': 'LED yörüngesi',
   'canvas.legend.crank': 'krank',
   'canvas.legend.output': 'çıkış',
@@ -371,7 +452,7 @@ export const tr: Record<TranslationKey, string> = {
   'topology.title': 'Topoloji',
   'topology.mobility': 'Serbestlik derecesi = {n}',
   'topology.loops': '{n} bağımsız çevrim',
-  'topology.counts': '8 kol / 10 mafsal',
+  'topology.counts': '{n} kol / {j} mafsal',
   'topology.note':
     'Seri bağlı üç RRR Assur diyadı olarak çözülür — her mafsal kapalı formda çember–çember kesişiminden gelir, bu yüzden hiçbir yerde Newton iterasyonu kullanılmaz.',
 
@@ -397,9 +478,12 @@ export const tr: Record<TranslationKey, string> = {
   'opt.finished': '{s} s içinde {n} değerlendirme',
   'opt.note':
     'Yapıcı bir uygulanabilir başlangıç popülasyonu üzerinde Diferansiyel Evrim (rand/1 + current-to-best/1), ardından sınırlı Nelder–Mead iyileştirmesi. Tuval akıcı kalsın diye Web Worker içinde çalışır. Örnekleme tur başına {a} → {b} → {c} kareye incelir.',
+  'opt.searchSpace': '{links} kollu mekanizmalar aranıyor · {n} tasarım değişkeni · hedef “{target}”.',
   'opt.bestTitle': 'En İyi Mekanizmalar ({n})',
-  'opt.sourceStored': 'Uygulamayla gelen çevrimdışı optimizasyon koşusundan yüklendi.',
-  'opt.sourceLive': 'Bu tarayıcıda az önce çalıştırdığınız optimizasyondan.',
+  'opt.sourceStored':
+    'Uygulamayla gelen çevrimdışı optimizasyon koşusundan yüklendi ({links} kollu, kalp hedefi). Birini seçmek mekanizmayı da optimize edildiği boyuta geçirir.',
+  'opt.sourceLive':
+    'Bu tarayıcıda az önce çalıştırdığınız optimizasyondan ({links} kollu, hedef “{target}”).',
   'opt.detail.score': 'Puan J',
   'opt.detail.rms': 'RMS hata',
   'opt.detail.maxError': 'Maks. hata',
@@ -411,6 +495,82 @@ export const tr: Record<TranslationKey, string> = {
   'opt.detail.layers': 'Montaj katmanı',
   'opt.detail.peakTorque': 'Tepe yerçekimi momenti',
   'opt.detail.fullRotation': 'Tam tur',
+
+  /* ---- mekanizma boyutu ---- */
+  'mech.title': 'Mekanizma',
+  'mech.linksLabel': 'Kol sayısı (şase dahil). Her seçenek yapısı gereği 1 serbestlik derecelidir.',
+  'mech.choiceTip': '{links} kol · {joints} mafsal · {dyads} diyad',
+  'mech.dyads': '{n} diyad',
+  'mech.params': '{n} parametre',
+  'mech.note':
+    'Bir krank ve seri çözülen N adet RRR Assur diyadı. Diyad sıfır hareketlilikli bir gruptur, bu yüzden eklenmesi serbestlik derecesini değiştiremez: n = 2 + 2N kol, j = 1 + 3N mafsal, her N için M = 1.',
+  'mech.resetWarning':
+    'Kol sayısını değiştirmek tasarım vektörünü sıfırlar — vektör farklı bir topolojiyi adresler, bu yüzden mevcut uzunluklar taşınamaz.',
+
+  /* ---- kısıtlar ---- */
+  'limits.title': 'Kısıtlar ve Ağırlıklar',
+  'limits.lmin': 'Min. kol uzunluğu',
+  'limits.lmax': 'Maks. kol uzunluğu',
+  'limits.crank': 'Krank uzunluğu |O2 A|',
+  'limits.o2o4': 'Şase açıklığı |O2 O4|',
+  'limits.o4o6': 'Şase açıklığı |O4 O6|',
+  'limits.linkWidth': 'Kol genişliği (girişim)',
+  'limits.muReject': 'Şu iletim açısının altını reddet',
+  'limits.targetW': 'Hedef genişlik',
+  'limits.targetH': 'Hedef yükseklik',
+  'limits.weightsTitle': 'Amaç fonksiyonu ağırlıkları',
+  'limits.w1': 'w₁ eğri',
+  'limits.w2': 'w₂ boyut',
+  'limits.w3': 'w₃ kapanma',
+  'limits.w4': 'w₄ tekillik',
+  'limits.w5': 'w₅ üretilebilirlik',
+  'limits.w6': 'w₆ oran',
+  'limits.w7': 'w₇ yerçekimi',
+  'limits.reset': 'Varsayılanlara dön',
+  'limits.note':
+    'Kısıtlar bir sonraki değerlendirmede geçerli olur; mevcut tasarımı değiştirmez, bundan sonra neyin geçerli sayılacağını belirler. Varsayılan: {lmin}–{lmax} mm.',
+
+  /* ---- hedef yörünge düzenleyici ---- */
+  'targetEdit.title': 'Hedef Yörünge',
+  'targetEdit.heart': 'Kalp',
+  'targetEdit.circle': 'Çember',
+  'targetEdit.import': 'İçe Aktar',
+  'targetEdit.export': 'Dışa Aktar',
+  'targetEdit.editMode': 'Noktaları tuval üzerinde düzenle',
+  'targetEdit.hint':
+    'Taşımak için tutamağı sürükleyin · Eklemek için boş alana Shift+tıklayın · Silmek için tutamağa Alt+tıklayın',
+  'targetEdit.smooth': 'Yumuşat (spline)',
+  'targetEdit.normalize': 'Boyuta sığdır',
+  'targetEdit.name': 'Ad',
+  'targetEdit.points': 'Kontrol noktası',
+  'targetEdit.size': 'Gerçek boyut',
+  'targetEdit.normalizeNote': 'Tam olarak {w} × {h} mm olacak şekilde ölçeklendi.',
+  'targetEdit.importOk': '“{name}” {n} kontrol noktasıyla içe aktarıldı.',
+  'targetEdit.importFail': 'İçe aktarma başarısız: {msg}',
+  'targetEdit.frameNote':
+    'Düzenleme sırasında hedef kendi koordinatlarında çizilir; böylece her tutamak sürüklediğiniz yerde durur. Hatanın ölçüldüğü yerleşimi, yani LED yörüngesine oturtulmuş halini görmek için düzenlemeyi kapatın.',
+
+  /* ---- seçim inceleyici ---- */
+  'inspect.title': 'Seçim',
+  'inspect.empty': 'İncelemek ve değiştirmek için tuval üzerinde bir kola veya mafsala tıklayın.',
+  'inspect.link': 'KOL',
+  'inspect.joint': 'MAFSAL',
+  'inspect.groundPivot': 'SABİT MAFSAL',
+  'inspect.layer': '{n}. katman',
+  'inspect.member': 'Eleman',
+  'inspect.memberLength': 'Eleman uzunluğu',
+  'inspect.dyad': 'Diyad',
+  'inspect.position': 'Konum',
+  'inspect.pairs': 'Buradaki dönel çift',
+  'inspect.connects': 'Bağladığı',
+  'inspect.editable': 'Bu gövdeyi belirleyen tasarım değişkenleri:',
+  'inspect.controlledBy': 'Bu noktayı konumlandıran tasarım değişkenleri:',
+  'inspect.derived':
+    'Türetilmiş: bu konum mevcut motor açısında mekanizma tarafından belirlenir, doğrudan atanmaz.',
+  'inspect.derivedMember':
+    'Bu eleman uzunluğu, yukarıdaki iki değişkenden kosinüs teoremiyle çıkar.',
+  'inspect.crankNote':
+    'Krank uzunluğu bir tasarım değişkeni değil şase kısıtıdır, bu yüzden diğer sınırlarla birlikte düzenlenir.',
 };
 
 export const LANGUAGES = [

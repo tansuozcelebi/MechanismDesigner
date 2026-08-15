@@ -1,101 +1,135 @@
-import type { Joint, Link, Topology } from './types';
+import {
+  CRANK_ID,
+  GROUND_ID,
+  barId,
+  dyadJointId,
+  groundJointId,
+  loopCount,
+  mobility,
+  pointRefId,
+  validateSpec,
+  type MechanismSpec,
+} from './spec';
+import type { Joint, Link, LinkId, Topology } from './types';
+
+/** Which body owns a given anchor point. */
+export function ownerOf(_spec: MechanismSpec, ref: { kind: string } & Record<string, unknown>): LinkId {
+  if (ref.kind === 'ground') return GROUND_ID;
+  if (ref.kind === 'crankTip') return CRANK_ID;
+  return barId(ref.dyad as number, ref.side as 'A' | 'B');
+}
+
+const label = (spec: MechanismSpec, id: string, fallback: string) =>
+  spec.labels?.[id] ?? fallback;
 
 /**
- * The chosen 8-bar chain: three fixed pivots (O2, O4, O6), one input crank at
- * O2, and three RRR Assur dyads in series.  Naming follows the classical
- * even-numbered ground-pivot convention (O2, O4, O6).
+ * Build the link/joint graph for a spec and verify it.
  *
- *                 ground (1)
- *        O2 ---------- O4 ---------- O6
- *         |             |             |
- *      [L2 crank]   [L4 rocker]   [L6 rocker]
- *         |            / \          /   \
- *         A           B   D        E     G
- *          \         /     \      /       \
- *           `--[L3]-'       [L7] [L5]      \
- *                |            \   /         \
- *                C-------------\ /           \
- *                               F-----[L8]----'
- *                                        `-- P_LED
- *
- * Read as a graph: L3 is the ternary coupler A-B-C, L4 the ternary rocker
- * O4-B-D, L6 the ternary rocker O6-E-G, L8 the output body G-F carrying the
- * LED as a rigid extension.
+ * The incidence and mobility checks are computed from the constructed graph
+ * rather than asserted from the formula, so a wiring mistake in a custom spec
+ * is caught here instead of producing a silently wrong simulation.
  */
-export const LINKS: Link[] = [
-  { id: 'ground', jointIds: ['O2', 'O4', 'O6'], role: 'ground', label: '1 — Ground' },
-  { id: 'L2', jointIds: ['O2', 'A'], role: 'input', label: '2 — Input crank' },
-  { id: 'L3', jointIds: ['A', 'B', 'C'], role: 'coupler', label: '3 — Coupler (ternary)' },
-  { id: 'L4', jointIds: ['O4', 'B', 'D'], role: 'rocker', label: '4 — Rocker (ternary)' },
-  { id: 'L5', jointIds: ['C', 'E'], role: 'binary', label: '5 — Connector' },
-  { id: 'L6', jointIds: ['O6', 'E', 'G'], role: 'rocker', label: '6 — Rocker 2 (ternary)' },
-  { id: 'L7', jointIds: ['D', 'F'], role: 'binary', label: '7 — Connector' },
-  {
-    id: 'L8',
-    jointIds: ['G', 'F'],
-    role: 'output',
-    label: '8 — Output (LED)',
-    markerIds: ['P_LED'],
-  },
-];
+export function buildTopology(spec: MechanismSpec): Topology {
+  const problems = validateSpec(spec);
+  if (problems.length) throw new Error(`Invalid mechanism spec: ${problems.join(' ')}`);
 
-export const JOINTS: Joint[] = [
-  { id: 'O2', kind: 'fixed', links: ['ground', 'L2'], label: 'O2 (motor)' },
-  { id: 'A', kind: 'revolute', links: ['L2', 'L3'], label: 'A' },
-  { id: 'B', kind: 'revolute', links: ['L3', 'L4'], label: 'B' },
-  { id: 'O4', kind: 'fixed', links: ['L4', 'ground'], label: 'O4' },
-  { id: 'C', kind: 'revolute', links: ['L3', 'L5'], label: 'C' },
-  { id: 'E', kind: 'revolute', links: ['L5', 'L6'], label: 'E' },
-  { id: 'O6', kind: 'fixed', links: ['L6', 'ground'], label: 'O6' },
-  { id: 'D', kind: 'revolute', links: ['L4', 'L7'], label: 'D' },
-  { id: 'F', kind: 'revolute', links: ['L7', 'L8'], label: 'F' },
-  { id: 'G', kind: 'revolute', links: ['L8', 'L6'], label: 'G' },
-];
+  const links: Link[] = [];
+  const joints: Joint[] = [];
 
-export const LOOPS = [
-  'I   : O2 -[L2]- A -[L3]- B -[L4]- O4 -[ground]- O2',
-  'II  : O2 -[L2]- A -[L3]- C -[L5]- E -[L6]- O6 -[ground]- O2',
-  'III : O4 -[L4]- D -[L7]- F -[L8]- G -[L6]- O6 -[ground]- O4',
-];
+  links.push({
+    id: GROUND_ID,
+    jointIds: [],
+    role: 'ground',
+    label: label(spec, GROUND_ID, '1 — Ground'),
+  });
+  links.push({
+    id: CRANK_ID,
+    jointIds: [],
+    role: 'input',
+    label: label(spec, CRANK_ID, '2 — Input crank'),
+  });
 
-/**
- * Grubler-Kutzbach for a planar chain of lower revolute pairs:
- *     M = 3(n - 1) - 2*j1 - j2,  with j2 = 0 here.
- * Also verifies that the incidence count is consistent (every revolute pair
- * joins exactly two bodies), which catches a mis-drawn graph.
- */
-export function computeTopology(): Topology {
-  const n = LINKS.length;
-  const j1 = JOINTS.length;
-  const j2 = 0;
-  const mobility = 3 * (n - 1) - 2 * j1 - j2;
-  const loopCount = j1 - n + 1;
+  const ledBar = barId(spec.led.dyad, spec.led.side);
 
-  // Consistency: sum over links of (joints on that link) must equal 2 * j1.
-  const incidence = LINKS.reduce((s, l) => s + l.jointIds.length, 0);
-  if (incidence !== 2 * j1) {
+  spec.dyads.forEach((_, k) => {
+    for (const side of ['A', 'B'] as const) {
+      const id = barId(k, side);
+      const isLed = id === ledBar;
+      links.push({
+        id,
+        jointIds: [],
+        role: isLed ? 'output' : side === 'A' ? 'coupler' : 'rocker',
+        label: label(spec, id, `${3 + 2 * k + (side === 'B' ? 1 : 0)} — dyad ${k + 1}${side}`),
+        markerIds: isLed ? ['LED'] : undefined,
+        dyad: k,
+        side,
+      });
+    }
+  });
+
+  const byId = new Map(links.map((l) => [l.id, l]));
+  const addJoint = (
+    id: string,
+    pointId: string,
+    a: LinkId,
+    b: LinkId,
+    kind: Joint['kind'],
+  ) => {
+    joints.push({ id, pointId, kind, links: [a, b], label: label(spec, pointId, pointId) });
+    for (const lid of [a, b]) {
+      const link = byId.get(lid);
+      if (link && !link.jointIds.includes(id)) link.jointIds.push(id);
+    }
+  };
+
+  // Motor pivot.
+  const g0 = groundJointId(0);
+  addJoint(g0, g0, GROUND_ID, CRANK_ID, 'fixed');
+
+  spec.dyads.forEach((d, k) => {
+    const aBar = barId(k, 'A');
+    const bBar = barId(k, 'B');
+
+    // The dyad's own unknown joint.
+    addJoint(dyadJointId(k), dyadJointId(k), aBar, bBar, 'revolute');
+
+    // Anchor joints. Each anchor is its own revolute pair even when several
+    // bars hang off the same rigid point.
+    for (const [ref, bar] of [
+      [d.a, aBar],
+      [d.b, bBar],
+    ] as const) {
+      const pid = pointRefId(ref);
+      const owner = ownerOf(spec, ref as unknown as { kind: string } & Record<string, unknown>);
+      const kind: Joint['kind'] = ref.kind === 'ground' ? 'fixed' : 'revolute';
+      addJoint(`${pid}~${bar}`, pid, owner, bar, kind);
+    }
+  });
+
+  // A ground pivot that carries no dyad is a frame feature, not a joint, so it
+  // is deliberately absent from the incidence count.
+
+  const n = links.length;
+  const j = joints.length;
+  const M = 3 * (n - 1) - 2 * j;
+
+  const incidence = links.reduce((s, l) => s + l.jointIds.length, 0);
+  if (incidence !== 2 * j) {
     throw new Error(
-      `Topology inconsistent: incidence ${incidence} != 2*j (${2 * j1}). ` +
+      `Topology inconsistent: incidence ${incidence} != 2*j (${2 * j}). ` +
         `Every revolute pair must join exactly two bodies.`,
     );
   }
-
-  // Every joint's declared links must actually list that joint.
-  for (const jt of JOINTS) {
-    for (const lid of jt.links) {
-      const link = LINKS.find((l) => l.id === lid);
-      if (!link) throw new Error(`Joint ${jt.id} references unknown link ${lid}`);
-      if (!link.jointIds.includes(jt.id))
-        throw new Error(`Link ${lid} does not list joint ${jt.id}`);
-    }
+  if (M !== mobility(spec)) {
+    throw new Error(`Constructed mobility ${M} disagrees with the spec formula ${mobility(spec)}.`);
   }
 
   // Connectivity: no free-floating body.
-  const seen = new Set<string>(['ground']);
+  const seen = new Set<string>([GROUND_ID]);
   let changed = true;
   while (changed) {
     changed = false;
-    for (const jt of JOINTS) {
+    for (const jt of joints) {
       const [a, b] = jt.links;
       if (seen.has(a) !== seen.has(b)) {
         seen.add(a);
@@ -107,14 +141,46 @@ export function computeTopology(): Topology {
   if (seen.size !== n)
     throw new Error(`Topology has a disconnected body: only ${seen.size}/${n} reachable`);
 
-  return { links: LINKS, joints: JOINTS, mobility, loopCount, loops: LOOPS };
+  return {
+    spec,
+    links,
+    joints,
+    mobility: M,
+    loopCount: loopCount(spec),
+    loops: describeLoops(spec),
+  };
 }
 
-export const TOPOLOGY = computeTopology();
+/**
+ * Topology depends only on the spec, and the collision check asks for it on
+ * every frame, so results are memoised per spec object. Building it involves
+ * validation and graph construction — cheap once, wasteful 720 times a sweep.
+ */
+const topologyCache = new WeakMap<MechanismSpec, Topology>();
 
-/** Two links are collision-exempt if they share a joint (they are pinned together). */
-export function linksShareJoint(a: string, b: string): boolean {
-  return JOINTS.some(
+export function topologyOf(spec: MechanismSpec): Topology {
+  let t = topologyCache.get(spec);
+  if (!t) {
+    t = buildTopology(spec);
+    topologyCache.set(spec, t);
+  }
+  return t;
+}
+
+/** Human-readable independent loops, one per dyad. */
+export function describeLoops(spec: MechanismSpec): string[] {
+  const name = (id: string) => spec.labels?.[id] ?? id;
+  return spec.dyads.map((d, k) => {
+    const a = name(pointRefId(d.a));
+    const b = name(pointRefId(d.b));
+    const j = name(dyadJointId(k));
+    return `${k + 1} : ${a} —[${name(barId(k, 'A'))}]— ${j} —[${name(barId(k, 'B'))}]— ${b} … frame`;
+  });
+}
+
+/** Two bodies are collision-exempt if a revolute pair pins them together. */
+export function linksShareJoint(topo: Topology, a: string, b: string): boolean {
+  return topo.joints.some(
     (j) => (j.links[0] === a && j.links[1] === b) || (j.links[0] === b && j.links[1] === a),
   );
 }

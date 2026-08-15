@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { CONFIG } from '../mechanism/config';
 import { buildGeometry, type Geometry } from '../mechanism/mechanism';
-import type { DesignVector, LinkId, Pose } from '../mechanism/types';
+import { dyadJointId, groundJointId, type MechanismSpec } from '../mechanism/spec';
+import type { LinkId, Pose } from '../mechanism/types';
 import { solvePose, sweep, type BranchState, type Sweep } from '../kinematics/forwardSolver';
 import { BranchTracker } from '../kinematics/branchTracker';
 import { detectCollisions } from '../collision/collisionDetector';
@@ -9,17 +10,21 @@ import { Scene2D, Z } from './Scene';
 import { LinkRenderer } from './LinkRenderer';
 import { JointRenderer } from './JointRenderer';
 import { TrailRenderer } from './TrailRenderer';
-import { HeartRenderer } from './HeartRenderer';
+import { TargetRenderer } from './TargetRenderer';
 import { DebugRenderer, DEFAULT_DEBUG, type DebugOptions } from './DebugRenderer';
 import { THEME } from './theme';
 import type { Vec2 } from '../utils/math';
 
 /**
  * Owns the Three.js scene and the kinematic state.  Deliberately framework
- * independent (brief §53): React drives it through plain method calls and
- * receives state back through a callback, so the solver never lives inside a
- * component's render cycle.
+ * independent: React drives it through plain method calls and reads state back,
+ * so the solver never lives inside a component's render cycle.
  */
+export type Selection =
+  | { kind: 'link'; linkId: LinkId; memberIndex: number }
+  | { kind: 'point'; pointId: string }
+  | null;
+
 export type ViewerState = {
   theta: number;
   pose: Pose | null;
@@ -34,11 +39,10 @@ export type ViewerState = {
 
 export class MechanismViewer {
   readonly scene: Scene2D;
-  private links = new LinkRenderer();
-  private joints = new JointRenderer();
+  readonly links = new LinkRenderer();
+  readonly joints = new JointRenderer();
+  readonly target = new TargetRenderer();
   private trail = new TrailRenderer();
-  private targetTrail = new TrailRenderer(THEME.target);
-  private heart = new HeartRenderer();
   private debug = new DebugRenderer();
   private tracker = new BranchTracker();
 
@@ -49,6 +53,9 @@ export class MechanismViewer {
   private omega = 0;
   private gravityOn = true;
   private debugOptions: DebugOptions = { ...DEFAULT_DEBUG };
+  private targetPoints: Vec2[] = [];
+  private layerOf: Record<string, number> | undefined;
+  private selection: Selection = null;
 
   private state: ViewerState = {
     theta: 0,
@@ -63,45 +70,44 @@ export class MechanismViewer {
   };
 
   /**
-   * Latest solved state, replaced (new object identity) on every solve.
-   *
-   * Deliberately a PULL interface rather than a callback.  Pushing this into
-   * React from inside solvePose meant setState ran synchronously inside the
-   * effect that drove the motor angle, so React counted every animation frame
-   * as a nested update and eventually warned "Maximum update depth exceeded".
-   * The render loop reads this once per frame instead, which is an ordinary
-   * update outside the commit phase — and it also halves the renders per frame.
+   * Latest solved state, replaced on every solve.  A PULL interface: pushing it
+   * into React from inside the solver made setState run within the effect that
+   * drives the motor angle, so React counted every animation frame as a nested
+   * update.  The render loop reads this once per frame instead.
    */
   get viewerState(): ViewerState {
     return this.state;
   }
 
-  constructor(canvas: HTMLCanvasElement, design: DesignVector) {
+  constructor(canvas: HTMLCanvasElement, spec: MechanismSpec, params: number[]) {
     this.scene = new Scene2D(canvas);
-    this.geo = buildGeometry(design);
+    this.geo = buildGeometry(spec, params);
 
-    this.scene.world.add(this.heart.group);
+    this.scene.world.add(this.target.group);
     this.scene.world.add(this.trail.object);
-    this.scene.world.add(this.targetTrail.object);
     this.scene.world.add(this.links.group);
     this.scene.world.add(this.joints.group);
     this.scene.world.add(this.debug.group);
 
     this.links.build(this.geo);
+    this.joints.build(this.geo);
     this.setTheta(0, true);
   }
 
   /* -------------------------- design / state ------------------------- */
 
-  setDesign(design: DesignVector, keepView = true): void {
-    this.geo = buildGeometry(design);
+  setDesign(spec: MechanismSpec, params: number[]): void {
+    const specChanged = spec !== this.geo.spec;
+    this.geo = buildGeometry(spec, params);
     this.links.build(this.geo);
+    // Joint markers depend only on the topology, so they are rebuilt only when
+    // the mechanism family changes — not on every parameter tweak.
+    if (specChanged) this.joints.build(this.geo);
     this.tracker.reset();
     this.branchState = null;
     this.lastGood = null;
     this.trail.clear();
     this.setTheta(this.theta, true);
-    if (!keepView) this.fitView();
   }
 
   get geometry(): Geometry {
@@ -124,11 +130,18 @@ export class MechanismViewer {
     this.gravityOn = on;
   }
 
+  setSelection(sel: Selection): void {
+    this.selection = sel;
+    if (this.lastGood) this.paint(this.lastGood);
+  }
+
+  get currentSelection(): Selection {
+    return this.selection;
+  }
+
   /**
-   * Solve and display one motor angle.
-   *
-   * On failure the last valid mechanism stays on screen (brief §42) rather than
-   * blanking the canvas or propagating NaN.
+   * Solve and display one motor angle.  On failure the last valid mechanism
+   * stays on screen rather than blanking the canvas or propagating NaN.
    */
   setTheta(theta: number, reseed = false): void {
     this.theta = theta;
@@ -140,29 +153,19 @@ export class MechanismViewer {
     const result = solvePose(this.geo, theta, this.branchState);
 
     if (!result.ok) {
-      this.state = {
-        ...this.state,
-        theta,
-        solverFailed: true,
-        failureReason: result.reason,
-      };
-      this.branchState = null; // re-seed from the explicit assembly next time
+      this.state = { ...this.state, theta, solverFailed: true, failureReason: result.reason };
+      this.branchState = null;
       return;
     }
 
     // Mouse dragging can step the angle a long way in one frame, so the
-    // continuity tolerance is widened accordingly rather than firing a false
-    // ASSEMBLY MODE JUMP.
+    // continuity tolerance is widened rather than firing a false jump warning.
     const continuous = this.tracker.accept(result, CONFIG.assemblyJumpTol * 4);
-    this.branchState = { B: result.joints.B, E: result.joints.E, F: result.joints.F };
+    this.branchState = this.geo.spec.dyads.map((_, k) => result.points[dyadJointId(k)]);
     this.lastGood = result;
 
-    const coll = detectCollisions(this.geo, result);
-
-    this.links.update(result, coll.collidingMembers, this.layerOf);
-    this.joints.update(result);
+    const coll = this.paint(result);
     this.trail.push(result.led);
-    this.debug.update(this.geo, result, this.omega, this.debugOptions, this.gravityOn);
 
     this.state = {
       theta,
@@ -177,32 +180,68 @@ export class MechanismViewer {
     };
   }
 
-  /* ----------------------------- display ----------------------------- */
-
-  private targetPoints: Vec2[] = [];
-  private layerOf: Record<string, number> | undefined;
-
-  setTargetHeart(points: Vec2[]): void {
-    this.targetPoints = points;
-    this.heart.setCurve(points);
+  private paint(pose: Pose) {
+    const coll = detectCollisions(this.geo, pose);
+    this.links.update(
+      pose,
+      coll.collidingMembers,
+      this.layerOf,
+      this.selection?.kind === 'link' ? this.selection.linkId : null,
+    );
+    this.joints.update(pose, this.selection?.kind === 'point' ? this.selection.pointId : null);
+    this.debug.update(this.geo, pose, this.omega, this.debugOptions, this.gravityOn);
+    return coll;
   }
 
-  /** Assembly layer per body, used for the depth shading. */
+  /* ----------------------------- picking ----------------------------- */
+
+  /** Pick what is under a world point: a control handle, a joint, or a bar. */
+  pick(world: Vec2): { target: number | null; selection: Selection } {
+    const tol = Math.max(6, this.scene.mmPerPixel * 12);
+    const handle = this.target.hitTest(world, Math.max(8, this.scene.mmPerPixel * 14));
+    if (handle !== null) return { target: handle, selection: null };
+
+    const pose = this.lastGood;
+    if (!pose) return { target: null, selection: null };
+
+    const j = this.joints.hitTest(pose, world, tol + 4);
+    if (j) return { target: null, selection: { kind: 'point', pointId: j.pointId } };
+
+    const m = this.links.hitTest(this.geo, pose, world, tol);
+    if (m) {
+      return {
+        target: null,
+        selection: { kind: 'link', linkId: m.linkId, memberIndex: m.memberIndex },
+      };
+    }
+    return { target: null, selection: null };
+  }
+
+  /* ----------------------------- display ----------------------------- */
+
+  setTarget(points: Vec2[], controls: Vec2[], showBox = true): void {
+    this.targetPoints = points;
+    this.target.setCurve(points, controls, showBox);
+  }
+
+  setTargetEditing(on: boolean): void {
+    this.target.setEditing(on);
+  }
+
+  setActiveControl(index: number | null): void {
+    this.target.setActiveControl(index);
+  }
+
   setLayers(layerOf: Record<string, number> | undefined): void {
     this.layerOf = layerOf;
   }
 
   setShowTarget(v: boolean): void {
-    this.heart.visible = v;
+    this.target.visible = v;
   }
 
   setShowTrail(v: boolean): void {
     this.trail.visible = v;
-  }
-
-  setShowIdealPath(points: Vec2[] | null): void {
-    if (points) this.targetTrail.setPath(points);
-    else this.targetTrail.clear();
   }
 
   setShowGrid(v: boolean): void {
@@ -230,29 +269,22 @@ export class MechanismViewer {
   /**
    * Frame everything the user needs to see at once.
    *
-   * The bounds come from two sources, unioned:
-   *
-   *   1. The actual scene graph (THREE.Box3 over the drawn groups).  This is
-   *      what is really on screen — including things easy to forget in manual
-   *      bookkeeping, such as the hatched ground symbols that hang below each
-   *      fixed pivot and the 250 mm target reference box.  Deriving the fit
-   *      from my own list of points is exactly how content ended up clipped at
-   *      the canvas edge.
-   *   2. The swept envelope of every joint over a full revolution, so the view
-   *      does not need to change while the mechanism animates.
+   * Bounds come from two sources, unioned: the actual scene graph (which
+   * includes markers sized in screen space, such as the hatched ground symbols
+   * and the LED glow), and the swept envelope of every joint over a full
+   * revolution so the view need not change while the mechanism animates.
    */
   fitView(): void {
-    const pts: Vec2[] = [this.geo.O2, this.geo.O4, this.geo.O6, ...this.targetPoints];
+    const pts: Vec2[] = [...this.geo.ground, ...this.targetPoints];
 
     const s = sweep(this.geo, 120, { computeSigma: false });
     for (const p of s.poses) {
       pts.push(p.led);
-      for (const key of Object.keys(p.joints) as (keyof typeof p.joints)[]) pts.push(p.joints[key]);
+      for (const key of Object.keys(p.points)) pts.push(p.points[key]);
     }
 
-    // Whatever is actually drawn, measured from the scene graph.
     const box = new THREE.Box3();
-    for (const group of [this.links.group, this.joints.group, this.trail.object, this.heart.group]) {
+    for (const group of [this.links.group, this.joints.group, this.trail.object, this.target.group]) {
       if (!group.visible) continue;
       box.expandByObject(group);
     }
@@ -261,6 +293,19 @@ export class MechanismViewer {
     }
 
     this.scene.fitTo(pts);
+  }
+
+  /** Ground pivot positions, for the crank-drag anchor. */
+  get motorPivot(): Vec2 {
+    return this.geo.ground[0] ?? { x: 0, y: 0 };
+  }
+
+  get crankTip(): Vec2 {
+    return this.lastGood?.points.A ?? this.motorPivot;
+  }
+
+  get groundIds(): string[] {
+    return this.geo.ground.map((_, i) => groundJointId(i));
   }
 
   resize(w: number, h: number): void {
@@ -272,6 +317,7 @@ export class MechanismViewer {
     const mmPerPixel = this.scene.mmPerPixel;
     this.joints.setScale(mmPerPixel);
     this.debug.setScale(mmPerPixel);
+    this.target.setScale(mmPerPixel);
   }
 
   render(): void {
@@ -283,11 +329,10 @@ export class MechanismViewer {
     this.links.dispose();
     this.joints.dispose();
     this.trail.dispose();
-    this.targetTrail.dispose();
-    this.heart.dispose();
+    this.target.dispose();
     this.debug.dispose();
     this.scene.dispose();
   }
 }
 
-export { Z, THREE };
+export { Z, THREE, THEME };

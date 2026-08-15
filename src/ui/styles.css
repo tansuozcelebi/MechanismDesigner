@@ -396,6 +396,20 @@ table tr.collide td {
   color: var(--bad);
 }
 
+/* The link table shares the canvas selection, so its rows are clickable. */
+table.picklist tbody tr {
+  cursor: pointer;
+}
+
+table.picklist tbody tr:hover td {
+  background: #161d26;
+}
+
+table.picklist tbody tr.selected td {
+  background: #1d2836;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .note {
   font-size: 11px;
   color: var(--text-faint);

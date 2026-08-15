@@ -1,26 +1,27 @@
 import * as THREE from 'three';
 import { CONFIG } from '../mechanism/config';
 import type { Geometry } from '../mechanism/mechanism';
-import { LINKS } from '../mechanism/topology';
-import type { JointId, LinkId, Pose } from '../mechanism/types';
+import { topologyOf } from '../mechanism/topology';
+import type { LinkId, Pose } from '../mechanism/types';
 import { THEME } from './theme';
 import { Z, makeCapsuleGeometry, makePolyline, disposeTree } from './Scene';
-import type { Vec2 } from '../utils/math';
 
 /**
- * Draws each rigid body as its real 12 mm wide bars (brief §30).
+ * Draws each rigid body as its real 12 mm wide bars.
  *
- * Geometry is created once per design and only the transforms are updated per
- * frame (brief §54) — each member is a unit-length capsule scaled and rotated
- * into place, so an animation frame costs a handful of matrix writes.
+ * Geometry is created once per design and only transforms are updated per frame.
+ * Member lengths are baked in rather than applied as an x scale: scaling a unit
+ * capsule would stretch its semicircular end caps by the same factor and draw a
+ * wedge hundreds of millimetres long instead of a bar.
  */
 type MemberView = {
   linkId: LinkId;
-  from: JointId | 'P_LED';
-  to: JointId | 'P_LED';
+  from: string;
+  to: string;
   mesh: THREE.Mesh;
   material: THREE.MeshBasicMaterial;
   centreLine: THREE.Line;
+  baseColor: number;
 };
 
 const ROLE_COLOR: Record<string, number> = {
@@ -35,25 +36,16 @@ const ROLE_COLOR: Record<string, number> = {
 export class LinkRenderer {
   readonly group = new THREE.Group();
   private members: MemberView[] = [];
-  private labelGroup = new THREE.Group();
-
-  constructor() {
-    this.group.add(this.labelGroup);
-  }
 
   /** Rebuild geometry — call only when the design (not the pose) changes. */
   build(geo: Geometry): void {
     this.clear();
+    const topo = topologyOf(geo.spec);
+    const roleOf = new Map(topo.links.map((l) => [l.id, l.role]));
 
     for (const mem of geo.members) {
-      const link = LINKS.find((l) => l.id === mem.linkId)!;
-      const baseColor = ROLE_COLOR[link.role] ?? THEME.linkDefault;
+      const baseColor = ROLE_COLOR[roleOf.get(mem.linkId) ?? 'binary'] ?? THEME.linkDefault;
 
-      // Built at the member's true length.  A unit capsule scaled in x would
-      // stretch the semicircular end caps by the same factor and draw a wedge
-      // hundreds of millimetres long instead of a 12 mm wide bar.  Member
-      // lengths are rigid-body constants, so nothing is lost by baking them in:
-      // each frame still only writes a position and a rotation.
       const geom = makeCapsuleGeometry(mem.length, CONFIG.linkWidth);
       const material = new THREE.MeshBasicMaterial({
         color: baseColor,
@@ -81,6 +73,7 @@ export class LinkRenderer {
         mesh,
         material,
         centreLine,
+        baseColor,
       });
     }
   }
@@ -96,36 +89,57 @@ export class LinkRenderer {
     pose: Pose,
     collidingMembers: Set<number>,
     layerOf?: Record<string, number>,
+    selectedLink?: string | null,
   ): void {
-    const at = (id: JointId | 'P_LED'): Vec2 => (id === 'P_LED' ? pose.led : pose.joints[id]);
-
     for (let idx = 0; idx < this.members.length; idx++) {
       const m = this.members[idx];
-      const a = at(m.from);
-      const b = at(m.to);
+      const a = pose.points[m.from];
+      const b = pose.points[m.to];
+      if (!a || !b) continue;
       const ang = Math.atan2(b.y - a.y, b.x - a.x);
 
       m.mesh.position.set(a.x, a.y, Z.link + (layerOf?.[m.linkId] ?? 0) * 0.01);
       m.mesh.rotation.z = ang;
-
       m.centreLine.position.set(a.x, a.y, Z.link + 0.5);
       m.centreLine.rotation.z = ang;
 
-      const link = LINKS.find((l) => l.id === m.linkId)!;
       const colliding = collidingMembers.has(idx);
-      const baseColor = ROLE_COLOR[link.role] ?? THEME.linkDefault;
-      const color = colliding ? THEME.linkCollide : baseColor;
-      m.material.color.setHex(color);
+      const selected = selectedLink === m.linkId;
+      m.material.color.setHex(
+        selected ? THEME.selection : colliding ? THEME.linkCollide : m.baseColor,
+      );
       // Deeper assembly layers are drawn slightly fainter so the stacking order
       // is readable without hiding anything.
       const layerFade = 1 - 0.12 * Math.min(3, layerOf?.[m.linkId] ?? 0);
-      m.material.opacity = (colliding ? 0.8 : 0.55) * layerFade;
-      // The centre line always keeps the body's role colour.  Coplanar
-      // interference is common in this topology, so tinting the whole bar red
-      // would otherwise hide which body is the input crank and which is the
-      // LED-carrying output.
-      (m.centreLine.material as THREE.LineBasicMaterial).color.setHex(baseColor);
+      m.material.opacity = (selected ? 0.95 : colliding ? 0.8 : 0.55) * layerFade;
+      // The centre line keeps the body role colour so the input crank and the
+      // LED-carrying output stay identifiable even when everything is flagged.
+      (m.centreLine.material as THREE.LineBasicMaterial).color.setHex(m.baseColor);
     }
+  }
+
+  /** Member index nearest to a world point, for canvas picking. */
+  hitTest(
+    geo: Geometry,
+    pose: Pose,
+    world: { x: number; y: number },
+    tolerance: number,
+  ): { memberIndex: number; linkId: LinkId; distance: number } | null {
+    let best: { memberIndex: number; linkId: LinkId; distance: number } | null = null;
+    geo.members.forEach((mem, i) => {
+      const a = pose.points[mem.from];
+      const b = pose.points[mem.to];
+      if (!a || !b) return;
+      const abx = b.x - a.x;
+      const aby = b.y - a.y;
+      const l2 = abx * abx + aby * aby;
+      const t = l2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((world.x - a.x) * abx + (world.y - a.y) * aby) / l2));
+      const d = Math.hypot(world.x - (a.x + abx * t), world.y - (a.y + aby * t));
+      if (d < tolerance && (!best || d < best.distance)) {
+        best = { memberIndex: i, linkId: mem.linkId, distance: d };
+      }
+    });
+    return best;
   }
 
   clear(): void {
@@ -140,6 +154,5 @@ export class LinkRenderer {
 
   dispose(): void {
     this.clear();
-    disposeTree(this.labelGroup);
   }
 }
