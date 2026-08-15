@@ -56,6 +56,7 @@ export class MechanismViewer {
   private targetPoints: Vec2[] = [];
   private layerOf: Record<string, number> | undefined;
   private selection: Selection = null;
+  private hover: Selection = null;
 
   private state: ViewerState = {
     theta: 0,
@@ -140,6 +141,20 @@ export class MechanismViewer {
   }
 
   /**
+   * What the cursor is over.  Kept separate from the selection so hovering never
+   * disturbs what the user deliberately picked, and repainted immediately so the
+   * highlight tracks the pointer even while playback is paused.
+   */
+  setHover(sel: Selection): void {
+    this.hover = sel;
+    if (this.lastGood) this.paint(this.lastGood);
+  }
+
+  get currentHover(): Selection {
+    return this.hover;
+  }
+
+  /**
    * Solve and display one motor angle.  On failure the last valid mechanism
    * stays on screen rather than blanking the canvas or propagating NaN.
    */
@@ -187,8 +202,13 @@ export class MechanismViewer {
       coll.collidingMembers,
       this.layerOf,
       this.selection?.kind === 'link' ? this.selection.linkId : null,
+      this.hover?.kind === 'link' ? this.hover.memberIndex : null,
     );
-    this.joints.update(pose, this.selection?.kind === 'point' ? this.selection.pointId : null);
+    this.joints.update(
+      pose,
+      this.selection?.kind === 'point' ? this.selection.pointId : null,
+      this.hover?.kind === 'point' ? this.hover.pointId : null,
+    );
     this.debug.update(this.geo, pose, this.omega, this.debugOptions, this.gravityOn);
     return coll;
   }

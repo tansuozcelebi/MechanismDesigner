@@ -13,7 +13,7 @@ değiştirilebilir.*
 npm install
 npm run dev        # http://localhost:5173
 npm test           # 78 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (31 checks)
+npm run smoke      # browser smoke test against a running dev server (35 checks)
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
 ```
@@ -25,13 +25,13 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 | Job | Does |
 |---|---|
 | **verify** | `npm ci` → `typecheck` → `test` (78) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 31-check browser smoke test |
+| **smoke** | installs Chromium, starts the dev server, runs the 35-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
 bundles. It covers what unit tests cannot — crank dragging, screen↔world round-tripping, playback,
-the debug overlay, canvas-edge clipping, changing the link count, selecting and editing a bar,
-editing the target trajectory, changing a constraint, and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
+the debug overlay, canvas-edge clipping, changing the link count, hovering, selecting and editing
+a bar, editing the target trajectory, changing a constraint, and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
 because CI runners are slower than a dev box, and `CHROMIUM` can point the script at a specific
 browser binary; otherwise it falls back to whatever Playwright installed.
 
@@ -199,6 +199,14 @@ The panel also reports the dependent member lengths that follow from the law of 
 of revolute pairs coincident at a point (several bodies can be pinned at one rigid point), and the
 body's assembly layer.
 
+**Hovering** is the lighter-weight version of the same thing: passing the cursor over a bar or a
+joint highlights it and prints a translucent strip along the bottom of the canvas. It carries what
+is only true *now* — a bar's orientation and whether it is interfering this instant, a joint's
+position and its live transmission angle — because the constant dimensions are already in the link
+table. Hovering deliberately never touches the selection, so moving the mouse cannot lose the thing
+you picked, and the strip is `pointer-events: none` so it can never intercept a click meant for the
+mechanism beneath it.
+
 ## I. Editable constraints
 
 `CONFIG` is a single source of truth that is **mutable at runtime**, so the constraints panel can
@@ -336,7 +344,8 @@ src/
   workers/     optimization.worker
   i18n/        translations (en + tr, key-parity enforced by the type system) · provider
   ui/          ControlPanel · MetricsPanel · LinkTable · DesignPanels (mechanism size, constraints,
-               target editor, selection inspector) · TorqueChart · LanguageSwitch · primitives
+               target editor, selection inspector) · HoverHint · TorqueChart · LanguageSwitch ·
+               primitives
   utils/       math · units
 scripts/       optimize (--dyads N) · merge · refreshMetrics · genInitial · findSeed · smoke
 ```

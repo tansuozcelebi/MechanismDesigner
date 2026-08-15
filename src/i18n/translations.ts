@@ -290,6 +290,17 @@ export const en = {
     'This member length follows from the law of cosines on the two variables above.',
   'inspect.crankNote':
     'The crank length is a frame constraint rather than a design variable, so it is edited with the other limits.',
+
+  /* ---- hover read-out ---- */
+  'hint.length': 'length',
+  'hint.angle': 'angle',
+  'hint.layer': 'layer',
+  'hint.mu': 'transmission μ',
+  'hint.connects': 'connects',
+  'hint.pairs': 'pairs here',
+  'hint.interfering': 'INTERFERING NOW',
+  'hint.clickToEdit': 'click to select and edit',
+  'hint.derived': 'position is derived from the mechanism',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -571,6 +582,17 @@ export const tr: Record<TranslationKey, string> = {
     'Bu eleman uzunluğu, yukarıdaki iki değişkenden kosinüs teoremiyle çıkar.',
   'inspect.crankNote':
     'Krank uzunluğu bir tasarım değişkeni değil şase kısıtıdır, bu yüzden diğer sınırlarla birlikte düzenlenir.',
+
+  /* ---- imleç bilgisi ---- */
+  'hint.length': 'uzunluk',
+  'hint.angle': 'açı',
+  'hint.layer': 'katman',
+  'hint.mu': 'iletim açısı μ',
+  'hint.connects': 'bağladığı',
+  'hint.pairs': 'buradaki çift',
+  'hint.interfering': 'ŞU AN GİRİŞİM VAR',
+  'hint.clickToEdit': 'seçmek ve düzenlemek için tıklayın',
+  'hint.derived': 'konum mekanizmadan türetilir',
 };
 
 export const LANGUAGES = [
