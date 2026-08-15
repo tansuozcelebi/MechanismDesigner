@@ -46,6 +46,7 @@ import {
   MechanismPanel,
   TargetEditorPanel,
 } from '../ui/DesignPanels';
+import { HoverHint } from '../ui/HoverHint';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section } from '../ui/primitives';
 import { LanguageSwitch } from '../ui/LanguageSwitch';
@@ -155,6 +156,12 @@ export default function App() {
 
   const [selection, setSelection] = useState<Selection>(null);
   /**
+   * What the cursor is over.  Separate from `selection` so a passing mouse never
+   * disturbs a deliberate pick; the controller only pushes this when the answer
+   * actually changes, so it does not re-render on every pointer move.
+   */
+  const [hover, setHover] = useState<Selection>(null);
+  /**
    * Bumped whenever the constraint panel edits CONFIG.  CONFIG is mutated in
    * place — deliberately, so every module sees the change without plumbing — so
    * React needs an explicit signal that the derived analysis is now stale.
@@ -224,6 +231,7 @@ export default function App() {
       },
       getTheta: () => viewer.currentTheta,
       onSelect: (sel) => setSelection(sel),
+      onHover: (sel) => setHover(sel),
       targetEditing: () => editingRef.current,
       onControlMove: (index, to) => setTargetCurve((c) => withControlMoved(c, index, to)),
       onControlAdd: (at) =>
@@ -279,6 +287,8 @@ export default function App() {
     const v = viewerRef.current;
     if (!v) return;
     v.setDesign(spec, params);
+    setHover(null);
+    v.setHover(null);
     v.showFullPath(analysis.sw.fullRotation ? analysis.sw : undefined);
     v.fitView();
     v.setTheta(theta, true);
@@ -586,6 +596,13 @@ export default function App() {
           )}
           {targetEditing && <div className="warn">{t('targetEdit.hint')}</div>}
         </div>
+        <HoverHint
+          hover={hover}
+          geo={analysis.geo}
+          pose={pose}
+          layerOf={analysis.metrics?.layerOf}
+          collidingMembers={viewerState?.collidingMembers}
+        />
         <div className="overlay bl">
           <div className="scalebar" style={{ width: `${scaleBarPx}px` }} />
           <span>

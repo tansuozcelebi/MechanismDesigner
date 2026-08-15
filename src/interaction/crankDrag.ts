@@ -17,6 +17,14 @@ export type CanvasCallbacks = {
   /** Selection changed (null when clicking empty space). */
   onSelect: (sel: Selection) => void;
 
+  /**
+   * What the cursor is over, null when it is over nothing.  Fires only when the
+   * answer CHANGES: a pointermove event arrives for every pixel, and pushing an
+   * identical hover into React on each one would re-render the whole app dozens
+   * of times a second for no visible difference.
+   */
+  onHover?: (sel: Selection) => void;
+
   /** Target editing. `onControlMove` fires continuously while dragging. */
   targetEditing: () => boolean;
   onControlMove: (index: number, to: Vec2) => void;
@@ -31,6 +39,8 @@ type Mode = 'crank' | 'pan' | 'control' | null;
 export class CanvasController {
   private mode: Mode = null;
   private controlIndex = -1;
+  /** Identity of the currently hovered thing, for change detection. */
+  private hoverKey: string | null = null;
   private lastPointer = { x: 0, y: 0 };
   private downAt = { x: 0, y: 0 };
   private detachers: (() => void)[] = [];
@@ -98,6 +108,7 @@ export class CanvasController {
       const world = scene.toWorld(e.clientX, e.clientY);
 
       if (this.mode === 'crank') {
+        this.reportHover(null);
         this.applyAngle(world);
       } else if (this.mode === 'control') {
         this.cb.onControlMove(this.controlIndex, world);
@@ -112,14 +123,19 @@ export class CanvasController {
       } else {
         const hit = viewer.pick(world);
         viewer.setActiveControl(hit.target);
+        const overCrank = this.hitsCrank(world);
         el.style.cursor =
           hit.target !== null
             ? 'grab'
-            : this.hitsCrank(world)
+            : overCrank
               ? 'grab'
               : hit.selection
                 ? 'pointer'
                 : 'default';
+        // A target handle takes the cursor, so it must also suppress the hint:
+        // describing the bar underneath while the user is aiming at a handle
+        // would point at the wrong thing.
+        this.reportHover(hit.target !== null ? null : hit.selection);
       }
       this.lastPointer = { x: e.clientX, y: e.clientY };
     };
@@ -139,6 +155,11 @@ export class CanvasController {
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
     };
 
+    const onPointerLeave = () => {
+      this.reportHover(null);
+      viewer.setActiveControl(null);
+    };
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       scene.zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, scene.toWorld(e.clientX, e.clientY));
@@ -150,6 +171,7 @@ export class CanvasController {
     el.addEventListener('pointermove', onPointerMove);
     el.addEventListener('pointerup', onPointerUp);
     el.addEventListener('pointercancel', onPointerUp);
+    el.addEventListener('pointerleave', onPointerLeave);
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('contextmenu', onContextMenu);
 
@@ -158,6 +180,7 @@ export class CanvasController {
       el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', onPointerUp);
+      el.removeEventListener('pointerleave', onPointerLeave);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('contextmenu', onContextMenu);
     });
@@ -165,6 +188,20 @@ export class CanvasController {
 
   /** Selection resolved on press, committed on release if it was a click. */
   private pendingSelection: Selection | undefined = undefined;
+
+  /** Push a hover change to the app, and to the viewer for its highlight. */
+  private reportHover(sel: Selection): void {
+    const key =
+      sel === null
+        ? null
+        : sel.kind === 'link'
+          ? `link:${sel.memberIndex}`
+          : `point:${sel.pointId}`;
+    if (key === this.hoverKey) return;
+    this.hoverKey = key;
+    this.viewer.setHover(sel);
+    this.cb.onHover?.(sel);
+  }
 
   get isDraggingCrank(): boolean {
     return this.mode === 'crank';

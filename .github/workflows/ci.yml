@@ -63,10 +63,10 @@ jobs:
 
       # The smoke test drives the real app in a real browser: it checks crank
       # dragging, screen<->world round-tripping, playback, the debug overlay,
-      # canvas-edge clipping, changing the link count, selecting and editing a
-      # bar, editing the target trajectory, changing a constraint, and the EN/TR
-      # switch. None of that is reachable from unit tests, so it needs an actual
-      # Chromium.
+      # canvas-edge clipping, changing the link count, hovering, selecting and
+      # editing a bar, editing the target trajectory, changing a constraint, and
+      # the EN/TR switch. None of that is reachable from unit tests, so it needs
+      # an actual Chromium.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 

@@ -108,15 +108,16 @@ export class JointRenderer {
     return g;
   }
 
-  update(pose: Pose, selectedPoint?: string | null): void {
+  update(pose: Pose, selectedPoint?: string | null, hoveredPoint?: string | null): void {
     for (const m of this.markers) {
       const p = pose.points[m.pointId];
       if (!p) continue;
       m.holder.position.x = p.x;
       m.holder.position.y = p.y;
       if (m.ring) {
+        const lit = selectedPoint === m.pointId || hoveredPoint === m.pointId;
         (m.ring.material as THREE.MeshBasicMaterial).color.setHex(
-          selectedPoint === m.pointId ? THEME.selection : THEME.movingJoint,
+          lit ? THEME.selection : THEME.movingJoint,
         );
       }
     }

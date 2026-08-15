@@ -90,6 +90,7 @@ export class LinkRenderer {
     collidingMembers: Set<number>,
     layerOf?: Record<string, number>,
     selectedLink?: string | null,
+    hoveredMember?: number | null,
   ): void {
     for (let idx = 0; idx < this.members.length; idx++) {
       const m = this.members[idx];
@@ -105,13 +106,17 @@ export class LinkRenderer {
 
       const colliding = collidingMembers.has(idx);
       const selected = selectedLink === m.linkId;
+      // Hover is per MEMBER, not per body: the hint describes one bar, and on a
+      // ternary link lighting all three would point at the wrong one.
+      const hovered = hoveredMember === idx;
       m.material.color.setHex(
-        selected ? THEME.selection : colliding ? THEME.linkCollide : m.baseColor,
+        selected || hovered ? THEME.selection : colliding ? THEME.linkCollide : m.baseColor,
       );
       // Deeper assembly layers are drawn slightly fainter so the stacking order
       // is readable without hiding anything.
       const layerFade = 1 - 0.12 * Math.min(3, layerOf?.[m.linkId] ?? 0);
-      m.material.opacity = (selected ? 0.95 : colliding ? 0.8 : 0.55) * layerFade;
+      m.material.opacity =
+        (selected ? 0.95 : hovered ? 0.8 : colliding ? 0.8 : 0.55) * layerFade;
       // The centre line keeps the body role colour so the input crank and the
       // LED-carrying output stay identifiable even when everything is flagged.
       (m.centreLine.material as THREE.LineBasicMaterial).color.setHex(m.baseColor);

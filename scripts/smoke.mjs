@@ -247,6 +247,55 @@ check(
   `${lenBefore.map((v) => v.toFixed(1)).join(',')} -> ${lenAfter.map((v) => v.toFixed(1)).join(',')}`,
 );
 
+// 2b. Hovering a bar shows the translucent hint at the bottom of the canvas.
+// The bar moved when the slider above was dragged, so its position is resolved
+// again rather than reusing the pre-edit screen point.
+const hoverPoint = await page.evaluate(() => {
+  const q = window.__viewer.currentPose;
+  const m = window.__viewer.geometry.members.find((mm) => mm.linkId !== 'crank');
+  const a = q.points[m.from];
+  const b = q.points[m.to];
+  return [(a.x + b.x) / 2, (a.y + b.y) / 2];
+});
+const hoverScreen = await toScreen(hoverPoint[0], hoverPoint[1]);
+await page.mouse.move(hoverScreen[0] + 300, hoverScreen[1] + 300);
+await page.waitForTimeout(300);
+const hintHiddenOffBar = await page.locator('.hoverhint').count();
+await page.mouse.move(hoverScreen[0], hoverScreen[1], { steps: 5 });
+await page.waitForTimeout(400);
+const hintText = (await page.locator('.hoverhint').textContent()) ?? '';
+check(
+  'hovering a bar shows the hint',
+  hintHiddenOffBar === 0 && /length/.test(hintText) && /angle/.test(hintText),
+  hintText.replace(/\s+/g, ' ').slice(0, 100),
+);
+// The hint must never swallow a click meant for the mechanism underneath it.
+const hintEvents = await page.evaluate(
+  () => getComputedStyle(document.querySelector('.hoverhint')).pointerEvents,
+);
+check('the hint does not intercept pointer events', hintEvents === 'none', hintEvents);
+
+// Hovering a joint reports the transmission angle rather than a length.
+const jointScreen = await toScreen(
+  ...(await page.evaluate(() => {
+    const q = window.__viewer.currentPose.points.J0;
+    return [q.x, q.y];
+  })),
+);
+await page.mouse.move(jointScreen[0], jointScreen[1]);
+await page.waitForTimeout(400);
+const jointHint = (await page.locator('.hoverhint').textContent()) ?? '';
+check(
+  'hovering a joint reports its transmission angle',
+  /JOINT/i.test(jointHint) && /μ/.test(jointHint),
+  jointHint.replace(/\s+/g, ' ').slice(0, 100),
+);
+
+// Leaving the canvas clears it.
+await page.mouse.move(20, 400);
+await page.waitForTimeout(400);
+check('leaving the canvas clears the hint', (await page.locator('.hoverhint').count()) === 0);
+
 // 3. Target trajectory: switch to a circle, then edit a control point.
 await page.locator('.section:has(h2:text-is("Target Trajectory")) button:has-text("Circle")').click();
 await page.waitForTimeout(900);
