@@ -373,8 +373,17 @@ check('constraints can be restored to the defaults', (await linkNote()) === note
 await page.locator('.section:has(h2:text-is("Constraints & Weights")) > header').click();
 
 // --- bilingual UI -------------------------------------------------------
-const heading = await page.locator('.header h1').textContent();
-check('app is named KREAMET', heading.trim() === 'KREAMET', heading.trim());
+const headerLogos = await page.locator('.header .logo').count();
+const headerBrands = await page.locator('.header .brand').count();
+check(
+  'the designer header shows the lockup exactly once',
+  headerLogos === 1 && headerBrands === 0,
+  `${headerLogos} logo(s), ${headerBrands} nav brand(s)`,
+);
+check(
+  'the lockup is labelled with the app name',
+  (await page.locator('.header .logo').getAttribute('alt')) === 'KREAMET',
+);
 
 const enTitles = await page.locator('.section > header h2').allTextContents();
 await page.click('.langswitch button:has-text("TR")');
@@ -437,7 +446,37 @@ check(
   (await page.locator('.fact').count()) >= 4 && /11\.41/.test(aboutText),
   `${await page.locator('.fact').count()} facts`,
 );
-check('the brand mark renders as vector art', (await page.locator('.logofull svg').count()) === 1);
+// One lockup per page: the designer draws its own as the page heading, so the
+// nav must not draw a second one beside it.
+const heroLogo = await page.locator('.herologo').getAttribute('src');
+check('the About page shows the brand lockup', heroLogo === '/kreamet-logo.svg', String(heroLogo));
+const logoOk = await page.evaluate(async () => {
+  const res = await fetch('/kreamet-logo.svg');
+  return res.ok && (await res.text()).includes('<svg');
+});
+check('the brand asset is served', logoOk);
+
+// Rendered check, not just a served one: measure the wordmark against the
+// drawing surface. A viewBox too narrow for the text clips it silently.
+const clip = await page.evaluate(async () => {
+  const svg = await (await fetch('/kreamet-logo.svg')).text();
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:-9999px;width:1200px';
+  host.innerHTML = svg;
+  document.body.appendChild(host);
+  const el = host.querySelector('svg');
+  const vb = el.viewBox.baseVal;
+  await document.fonts.ready;
+  const t = host.querySelector('text').getBBox();
+  const over = Math.round(t.x + t.width - (vb.x + vb.width));
+  host.remove();
+  return { over, need: Math.round(t.x + t.width), have: Math.round(vb.x + vb.width) };
+});
+check(
+  'the wordmark fits inside the logo viewBox',
+  clip.over <= 0,
+  `wordmark ends at ${clip.need}, box ends at ${clip.have}`,
+);
 
 await page.click('.sitenav a:has-text("Mechanism Theory")');
 await page.waitForTimeout(3000);

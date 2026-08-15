@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 94 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (46 checks)
+npm test           # 97 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (49 checks)
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
 ```
@@ -24,8 +24,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (94) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 46-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (97) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 49-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -377,7 +377,7 @@ src/
   pages/       AboutPage · TheoryPage
   content/     about (developer + project facts) · theory.tr.md (5000 lines) · theory.en.md
   ui/          ControlPanel · MetricsPanel · LinkTable · DesignPanels (mechanism size, constraints,
-               target editor, selection inspector) · HoverHint · Markdown · Logo · SiteNav ·
+               target editor, selection inspector) · HoverHint · Markdown · SiteNav ·
                TorqueChart · LanguageSwitch · primitives
   utils/       math · units
 scripts/       optimize (--dyads N) · merge · refreshMetrics · genInitial · findSeed · smoke
@@ -415,12 +415,19 @@ else English; the choice is stored in `localStorage` and also applied to `<html 
 
 ## Brand
 
-The KREAMET mark is drawn as vector art (`src/ui/Logo.tsx`) rather than shipped
-as a bitmap: a K built from the things the app models — a gear, a fixed frame
-post, and two links meeting at a revolute bearing over a faint blueprint. One
-file serves the 26 px header and the 200 px About hero, it costs no extra
-request, and the gear teeth are generated rather than hand-placed so the pitch
-is exact.
+`public/kreamet-logo.svg` is the single brand asset — a gear, a fixed frame
+post and two links meeting at a revolute bearing forming a K, beside the
+KREAMET wordmark. One file serves the designer header, the content-page header
+and the About hero. It is drawn once per page: the designer renders it as its
+page heading, so `SiteNav` takes `brand={false}` there rather than putting the
+same logo on screen twice.
+
+The wordmark is real `<text>` with `textLength` pinned, so the lockup occupies a
+known width whatever font the viewer actually has, and the `viewBox` is sized
+around that. A unit test asserts `x + textLength ≤ viewBox width` and a smoke
+check measures the rendered text box against the drawing surface — the
+regression they guard is a box narrower than the wordmark, which clipped the
+final letter at every size.
 
 ## Export
 
