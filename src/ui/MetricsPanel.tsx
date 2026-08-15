@@ -223,33 +223,41 @@ export function CyclePanel({ metrics }: { metrics: MetricsType | null }) {
   );
 }
 
-/** Target vs. achieved geometry (brief §37). */
-export function TargetPanel({ metrics }: { metrics: MetricsType | null }) {
+/**
+ * Target vs. achieved geometry (brief §37).
+ *
+ * The reference size is the size of the target curve actually in force, not the
+ * configured 250 × 250 mm: once a custom trajectory is loaded, comparing the LED
+ * envelope against the heart's dimensions would be measuring the wrong thing.
+ */
+export function TargetPanel({
+  metrics,
+  requestedWidth,
+  requestedHeight,
+}: {
+  metrics: MetricsType | null;
+  requestedWidth: number;
+  requestedHeight: number;
+}) {
   const t = useT();
   const score = metrics?.heartMatchPercent ?? 0;
+  const wRef = requestedWidth || CONFIG.targetWidth;
+  const hRef = requestedHeight || CONFIG.targetHeight;
 
   return (
     <Section title={t('target.title')}>
       <Metrics>
-        <Metric
-          label={t('target.width')}
-          value={`${CONFIG.targetWidth.toFixed(2)} mm`}
-          tone="dim"
-        />
-        <Metric
-          label={t('target.height')}
-          value={`${CONFIG.targetHeight.toFixed(2)} mm`}
-          tone="dim"
-        />
+        <Metric label={t('target.width')} value={`${wRef.toFixed(2)} mm`} tone="dim" />
+        <Metric label={t('target.height')} value={`${hRef.toFixed(2)} mm`} tone="dim" />
         <Metric
           label={t('target.actualWidth')}
           value={num(metrics?.width, 2, ' mm')}
-          tone={metrics && Math.abs(metrics.width - CONFIG.targetWidth) < 25 ? 'good' : 'warn'}
+          tone={metrics && Math.abs(metrics.width - wRef) < 25 ? 'good' : 'warn'}
         />
         <Metric
           label={t('target.actualHeight')}
           value={num(metrics?.height, 2, ' mm')}
-          tone={metrics && Math.abs(metrics.height - CONFIG.targetHeight) < 25 ? 'good' : 'warn'}
+          tone={metrics && Math.abs(metrics.height - hRef) < 25 ? 'good' : 'warn'}
         />
         <Metric label={t('target.rmsChamfer')} value={num(metrics?.match.chamferRms, 2, ' mm')} />
         <Metric

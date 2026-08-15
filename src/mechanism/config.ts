@@ -1,5 +1,18 @@
 /**
  * Single source of truth for every tunable constant in the project.
+ *
+ * CONFIG is deliberately MUTABLE at runtime so the constraints panel can change
+ * link-length bounds, frame dimensions, tolerances and objective weights without
+ * a rebuild.  Every module already reads `CONFIG.x` at call time, so a change
+ * takes effect on the next evaluation with no plumbing: the alternative — passing
+ * a settings object through every solver signature — would touch essentially the
+ * whole codebase to express the same thing.
+ *
+ * The trade-off is global mutable state.  It is acceptable here because the
+ * settings really are global to a session, each execution context (window,
+ * worker, script) owns its own module instance, and everything is single
+ * threaded, so no evaluation can observe a half-applied change.  `DEFAULTS`
+ * keeps a frozen copy so `resetConfig()` is always exact.
  */
 
 export const CONFIG = {
@@ -107,6 +120,44 @@ export const CONFIG = {
     localIterations: 900,
     keepBest: 20,
   },
-} as const;
+};
 
-export type Weights = typeof CONFIG.weights;
+export type Config = typeof CONFIG;
+export type Weights = Config['weights'];
+
+/** Immutable snapshot of the shipped defaults, for `resetConfig()`. */
+const DEFAULTS: Config = structuredClone(CONFIG);
+
+/** Recursively merge a partial patch into the live CONFIG. */
+function mergeInto(target: Record<string, unknown>, patch: Record<string, unknown>): void {
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) continue;
+    const cur = target[k];
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) && typeof cur === 'object' && cur !== null) {
+      mergeInto(cur as Record<string, unknown>, v as Record<string, unknown>);
+    } else {
+      target[k] = v;
+    }
+  }
+}
+
+export type ConfigPatch = {
+  [K in keyof Config]?: Config[K] extends object ? Partial<Config[K]> : Config[K];
+};
+
+/** Apply a patch to the live configuration. Returns CONFIG for convenience. */
+export function applyConfig(patch: ConfigPatch): Config {
+  mergeInto(CONFIG as unknown as Record<string, unknown>, patch as Record<string, unknown>);
+  return CONFIG;
+}
+
+/** Restore every value to the shipped default. */
+export function resetConfig(): Config {
+  mergeInto(CONFIG as unknown as Record<string, unknown>, structuredClone(DEFAULTS) as unknown as Record<string, unknown>);
+  return CONFIG;
+}
+
+/** A plain copy of the current values, for export / worker transfer. */
+export const snapshotConfig = (): Config => structuredClone(CONFIG);
+
+export { DEFAULTS as DEFAULT_CONFIG };

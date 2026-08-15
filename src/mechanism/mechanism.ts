@@ -1,142 +1,199 @@
 import { CONFIG } from './config';
-import type { DesignVector, LinkId, LinkMember } from './types';
-import { DESIGN_KEYS, type ContinuousKey } from './types';
+import {
+  CRANK_ID,
+  barId,
+  defaultSpec,
+  extraId,
+  groundJointId,
+  paramLayout,
+  pointRefId,
+  usedExtras,
+  type MechanismSpec,
+  type ParamSpec,
+  type PointRef,
+} from './spec';
+import type { LinkId, LinkMember, Pose } from './types';
 import { degToRad, thirdSide, v2, type Vec2 } from '../utils/math';
 
 /**
- * Resolved, immutable geometry derived from a design vector: fixed pivot
- * positions plus every physical member length of every rigid body.
+ * Resolved geometry: fixed pivot positions plus every physical member length of
+ * every rigid body, derived from a spec and its parameter vector.
  */
+export type BarGeometry = {
+  id: LinkId;
+  dyad: number;
+  side: 'A' | 'B';
+  /** Point this bar is anchored to (a joint id). */
+  anchorId: string;
+  /** The dyad joint at the far end. */
+  jointId: string;
+  length: number;
+  /** Rigid third point, when this bar carries one. */
+  extra?: { id: string; r: number; angleDeg: number; toJoint: number };
+};
+
 export type Geometry = {
-  design: DesignVector;
-  O2: Vec2;
-  O4: Vec2;
-  O6: Vec2;
-  /** Physical members that would actually be printed. */
+  spec: MechanismSpec;
+  params: number[];
+  layout: ParamSpec[];
+  /** Ground pivot positions, index-aligned with the spec. */
+  ground: Vec2[];
+  bars: BarGeometry[];
   members: LinkMember[];
-  /** Derived (dependent) member lengths of the ternary bodies. */
-  derived: { BC: number; BD: number; EG: number; FP: number };
+  ledId: string;
+  crankLength: number;
 };
 
-export const BOUNDS: Record<ContinuousKey, [number, number]> = {
-  // O6 swept over the lower-right quadrant band; the mechanism grows upward.
-  phi6: [-150, 150],
-  lAB: [CONFIG.Lmin, CONFIG.Lmax],
-  c3r: [CONFIG.Lmin, CONFIG.Lmax],
-  c3a: [-180, 180],
-  lO4B: [CONFIG.Lmin, CONFIG.Lmax],
-  d4r: [CONFIG.Lmin, CONFIG.Lmax],
-  d4a: [-180, 180],
-  lCE: [CONFIG.Lmin, CONFIG.Lmax],
-  lO6E: [CONFIG.Lmin, CONFIG.Lmax],
-  g6r: [CONFIG.Lmin, CONFIG.Lmax],
-  g6a: [-180, 180],
-  lDF: [CONFIG.Lmin, CONFIG.Lmax],
-  lGF: [CONFIG.Lmin, CONFIG.Lmax],
-  p8r: [CONFIG.Lmin, CONFIG.Lmax],
-  p8a: [-180, 180],
-};
-
-export function designToArray(d: DesignVector): number[] {
-  return DESIGN_KEYS.map((k) => d[k]);
+/** Parameter bounds for the current spec and the live length limits. */
+export function boundsFor(spec: MechanismSpec): [number, number][] {
+  return paramLayout(spec).map((p) =>
+    p.unit === 'mm' ? [CONFIG.Lmin, CONFIG.Lmax] : [p.min, p.max],
+  );
 }
 
-export function arrayToDesign(
-  x: number[],
-  branches: [number, number, number] = [1, 1, 1],
-): DesignVector {
-  const d = {} as DesignVector;
-  DESIGN_KEYS.forEach((k, i) => {
-    (d as Record<string, number>)[k] = x[i];
-  });
-  d.branch1 = branches[0];
-  d.branch2 = branches[1];
-  d.branch3 = branches[2];
-  return d;
+export function clampParams(spec: MechanismSpec, x: number[]): number[] {
+  const b = boundsFor(spec);
+  return x.map((xi, i) => (b[i] ? Math.min(b[i][1], Math.max(b[i][0], xi)) : xi));
 }
 
-export const boundsArray = (): [number, number][] =>
-  DESIGN_KEYS.map((k) => BOUNDS[k]);
-
-export function clampDesign(x: number[]): number[] {
-  const b = boundsArray();
-  return x.map((xi, i) => Math.min(b[i][1], Math.max(b[i][0], xi)));
-}
-
-/** Build the resolved geometry for a design vector. */
-export function buildGeometry(design: DesignVector): Geometry {
-  const O2 = v2(CONFIG.O2.x, CONFIG.O2.y);
-  const O4 = v2(O2.x + CONFIG.O2O4, O2.y);
-  const p6 = degToRad(design.phi6);
-  const O6 = v2(O4.x + CONFIG.O4O6 * Math.cos(p6), O4.y + CONFIG.O4O6 * Math.sin(p6));
-
-  // Dependent members of the ternary bodies, from the law of cosines.
-  const BC = thirdSide(design.lAB, design.c3r, degToRad(design.c3a));
-  const BD = thirdSide(design.lO4B, design.d4r, degToRad(design.d4a));
-  const EG = thirdSide(design.lO6E, design.g6r, degToRad(design.g6a));
-  const FP = thirdSide(design.lGF, design.p8r, degToRad(design.p8a));
-
-  const m = (linkId: LinkId, from: LinkMember['from'], to: LinkMember['to'], length: number) =>
-    ({ linkId, from, to, length }) as LinkMember;
-
-  const members: LinkMember[] = [
-    m('L2', 'O2', 'A', CONFIG.crankLength),
-    m('L3', 'A', 'B', design.lAB),
-    m('L3', 'A', 'C', design.c3r),
-    m('L3', 'B', 'C', BC),
-    m('L4', 'O4', 'B', design.lO4B),
-    m('L4', 'O4', 'D', design.d4r),
-    m('L4', 'B', 'D', BD),
-    m('L5', 'C', 'E', design.lCE),
-    m('L6', 'O6', 'E', design.lO6E),
-    m('L6', 'O6', 'G', design.g6r),
-    m('L6', 'E', 'G', EG),
-    m('L7', 'D', 'F', design.lDF),
-    m('L8', 'G', 'F', design.lGF),
-    m('L8', 'G', 'P_LED', design.p8r),
-    m('L8', 'F', 'P_LED', FP),
-  ];
-
-  return { design, O2, O4, O6, members, derived: { BC, BD, EG, FP } };
+/** Index the parameter vector by layout key. */
+function indexByKey(layout: ParamSpec[]): Map<string, number> {
+  const m = new Map<string, number>();
+  layout.forEach((p, i) => m.set(p.key, i));
+  return m;
 }
 
 /**
- * Hard manufacturability check (brief §4 / §43): EVERY physical member,
- * including the dependent sides of the ternary bodies and the LED extension,
- * must fall in [Lmin, Lmax].  Returns a smooth violation magnitude in mm so
- * the optimiser gets a gradient rather than a cliff.
+ * Build resolved geometry.  Ground pivots march outward from the origin: G0 at
+ * O2, G1 fixed on the +x axis at the mandated O2O4 spacing, and each further
+ * pivot at the configured spacing and a design-variable heading from the one
+ * before it.
+ */
+export function buildGeometry(spec: MechanismSpec, params: number[]): Geometry {
+  const layout = paramLayout(spec);
+  const idx = indexByKey(layout);
+  const get = (key: string, fallback = 0): number => {
+    const i = idx.get(key);
+    return i === undefined ? fallback : params[i];
+  };
+
+  const ground: Vec2[] = [v2(CONFIG.O2.x, CONFIG.O2.y)];
+  if (spec.groundPivots > 1) ground.push(v2(ground[0].x + CONFIG.O2O4, ground[0].y));
+  for (let g = 2; g < spec.groundPivots; g++) {
+    const phi = degToRad(get(`g${g}.phi`));
+    const prev = ground[g - 1];
+    ground.push(v2(prev.x + CONFIG.O4O6 * Math.cos(phi), prev.y + CONFIG.O4O6 * Math.sin(phi)));
+  }
+
+  const used = usedExtras(spec);
+  const bars: BarGeometry[] = [];
+  const members: LinkMember[] = [];
+
+  members.push({
+    linkId: CRANK_ID,
+    from: groundJointId(0),
+    to: 'A',
+    length: CONFIG.crankLength,
+  });
+
+  spec.dyads.forEach((d, k) => {
+    for (const side of ['A', 'B'] as const) {
+      const ref: PointRef = side === 'A' ? d.a : d.b;
+      const id = barId(k, side);
+      const length = get(`d${k}.len${side}`, CONFIG.Lmin);
+      const anchorId = pointRefId(ref);
+      const jointId = `J${k}`;
+
+      const bar: BarGeometry = { id, dyad: k, side, anchorId, jointId, length };
+      members.push({ linkId: id, from: anchorId, to: jointId, length });
+
+      if (used.has(extraId(k, side))) {
+        const r = get(`d${k}.extra${side}.r`, CONFIG.Lmin);
+        const a = get(`d${k}.extra${side}.a`, 0);
+        const toJoint = thirdSide(length, r, degToRad(a));
+        bar.extra = { id: extraId(k, side), r, angleDeg: a, toJoint };
+        members.push({ linkId: id, from: anchorId, to: bar.extra.id, length: r });
+        members.push({ linkId: id, from: jointId, to: bar.extra.id, length: toJoint });
+      }
+      bars.push(bar);
+    }
+  });
+
+  return {
+    spec,
+    params,
+    layout,
+    ground,
+    bars,
+    members,
+    ledId: extraId(spec.led.dyad, spec.led.side),
+    crankLength: CONFIG.crankLength,
+  };
+}
+
+/**
+ * Does this pose actually describe this geometry?
+ *
+ * The viewer solves on its own schedule, so for one render after the mechanism
+ * changes the UI still holds the previous pose while the geometry is already the
+ * new one.  Everything downstream — mass properties, torque, the link table —
+ * indexes `pose.points` by ids taken from the geometry, so the mismatch would
+ * surface as an undefined coordinate deep inside a physics routine rather than
+ * as an obviously wrong picture.  Checking lets the transitional frame render
+ * honestly as "not solved yet".
+ */
+export function poseFitsGeometry(geo: Geometry, pose: Pose): boolean {
+  if (pose.transmissionAngles.length !== geo.spec.dyads.length) return false;
+  if (!pose.points[geo.ledId]) return false;
+  for (const m of geo.members) {
+    if (!pose.points[m.from] || !pose.points[m.to]) return false;
+  }
+  return true;
+}
+
+/**
+ * Hard manufacturability check: EVERY physical member, including the dependent
+ * sides of the ternary bodies and the LED extension, must fall in
+ * [Lmin, Lmax].  Returns a smooth violation magnitude in mm so the optimiser
+ * gets a gradient rather than a cliff.
  */
 export function lengthViolation(geo: Geometry): number {
   let vio = 0;
   for (const mem of geo.members) {
+    if (!Number.isFinite(mem.length)) {
+      vio += 1e3;
+      continue;
+    }
     if (mem.length < CONFIG.Lmin) vio += CONFIG.Lmin - mem.length;
     else if (mem.length > CONFIG.Lmax) vio += mem.length - CONFIG.Lmax;
-    if (!Number.isFinite(mem.length)) vio += 1e3;
   }
   return vio;
 }
 
-/**
- * Soft proportion penalty (brief §4): adjacent members should stay within
- * 0.4 < Li/Lj < 2.5.  "Adjacent" = sharing a rigid body or a joint.
- */
+/** Soft proportion penalty: adjacent bodies should stay within ratioMin..ratioMax. */
 export function ratioPenalty(geo: Geometry): number {
+  const principal = [geo.crankLength, ...geo.bars.map((b) => b.length)];
   let pen = 0;
-  const byLink = new Map<LinkId, number[]>();
-  for (const mem of geo.members) {
-    const arr = byLink.get(mem.linkId) ?? [];
-    arr.push(mem.length);
-    byLink.set(mem.linkId, arr);
-  }
-  // Compare the principal member of each body against its neighbours.
-  const principal = ['L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8'].map((id) => {
-    const arr = byLink.get(id as LinkId) ?? [1];
-    return Math.max(...arr);
-  });
   for (let i = 0; i < principal.length - 1; i++) {
-    const r = principal[i] / principal[i + 1];
+    const r = principal[i] / Math.max(1e-9, principal[i + 1]);
     if (r < CONFIG.ratioMin) pen += (CONFIG.ratioMin - r) ** 2;
     else if (r > CONFIG.ratioMax) pen += ((r - CONFIG.ratioMax) / CONFIG.ratioMax) ** 2;
   }
   return pen;
 }
+
+/** Human-readable parameter table, for the UI and the export. */
+export function paramEntries(
+  geo: Geometry,
+): { key: string; label: string; value: number; unit: string; min: number; max: number }[] {
+  return geo.layout.map((p, i) => ({
+    key: p.key,
+    label: p.label,
+    value: geo.params[i],
+    unit: p.unit === 'mm' ? 'mm' : '°',
+    min: p.unit === 'mm' ? CONFIG.Lmin : p.min,
+    max: p.unit === 'mm' ? CONFIG.Lmax : p.max,
+  }));
+}
+
+export { defaultSpec };

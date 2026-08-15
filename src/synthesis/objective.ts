@@ -1,16 +1,17 @@
 import { CONFIG } from '../mechanism/config';
 import {
-  arrayToDesign,
   buildGeometry,
   lengthViolation,
   ratioPenalty,
   type Geometry,
 } from '../mechanism/mechanism';
+import { DEFAULT_SPEC, type MechanismSpec } from '../mechanism/spec';
 import { sweep, type Sweep } from '../kinematics/forwardSolver';
 import { sweepCollisionPenalty } from '../collision/collisionDetector';
 import { buildability } from '../collision/layering';
 import { gravityTorque } from '../dynamics/gravity';
-import { boundingBox, TARGET_HEART } from './heartCurve';
+import { boundingBox } from './heartCurve';
+import { heartTarget, resolveTarget, type ResolvedTarget, type TargetCurve } from './targetCurve';
 import {
   bestRigidAlignment,
   chamferError,
@@ -20,16 +21,7 @@ import {
   type MatchErrors,
   type RigidTransform,
 } from './curveMatching';
-import { NearestQuery } from './nearest';
 import type { Vec2 } from '../utils/math';
-
-/**
- * The canonical heart never moves, so its spatial index is built once.  The
- * rigid alignment is applied to the LED path in reverse instead — distances are
- * invariant under a rigid transform, so this is exact and lets every evaluation
- * reuse the same index.
- */
-const TARGET_QUERY = new NearestQuery(TARGET_HEART.points);
 
 export type EvalLevel = 'coarse' | 'medium' | 'fine';
 
@@ -43,20 +35,33 @@ const SAMPLES: Record<EvalLevel, number> = {
  * Penalty bands.  Ordering matters: any design that violates a hard constraint
  * must score strictly worse than every feasible design, but the penalty inside
  * each band still varies smoothly so the global search can climb out of the
- * infeasible region instead of seeing a flat plateau (brief §43).
+ * infeasible region instead of seeing a flat plateau.
  */
 export const BAND_LENGTH = 1e6;
 export const BAND_ASSEMBLY = 1e4;
 
+/**
+ * The active target.  Held module-side and resolved once, because the spatial
+ * index behind it is reused across tens of thousands of evaluations; rebuilding
+ * it per call would dominate the optimiser's runtime.
+ */
+let activeTarget: ResolvedTarget = resolveTarget(heartTarget());
+
+export function setTarget(curve: TargetCurve): ResolvedTarget {
+  activeTarget = resolveTarget(curve);
+  return activeTarget;
+}
+
+export const getTarget = (): ResolvedTarget => activeTarget;
+
 export type Metrics = {
-  /** Objective value J. */
   J: number;
   valid: boolean;
   rejectReason: string | null;
 
   /* Trajectory */
   ledPath: Vec2[];
-  /** Target heart rigidly placed onto the LED path (rotation + translation only). */
+  /** Target rigidly placed onto the LED path (rotation + translation only). */
   alignedTarget: Vec2[];
   alignment: RigidTransform;
   match: MatchErrors;
@@ -73,7 +78,6 @@ export type Metrics = {
   maxLoopClosureError: number;
   pathClosure: number;
   minTransmissionAngle: number;
-  /** Effective transmission margin, min(mu, 180-mu) over the cycle, degrees. */
   effectiveTransmissionAngle: number;
   minSigma: number;
 
@@ -88,7 +92,6 @@ export type Metrics = {
   /* Dynamics */
   peakGravityTorque: number;
 
-  /* Objective breakdown */
   terms: {
     curve: number;
     size: number;
@@ -135,49 +138,42 @@ export function emptyMetrics(J: number, reason: string): Metrics {
     stackThickness: 0,
     layerOf: {},
     peakGravityTorque: 0,
-    terms: {
-      curve: 0,
-      size: 0,
-      closure: 0,
-      singularity: 0,
-      collision: 0,
-      ratio: 0,
-      gravity: 0,
-    },
+    terms: { curve: 0, size: 0, closure: 0, singularity: 0, collision: 0, ratio: 0, gravity: 0 },
   };
 }
 
 export type EvalOptions = {
   level?: EvalLevel;
+  spec?: MechanismSpec;
   weights?: typeof CONFIG.weights;
-  /** Skip the (expensive) SVD singularity measure; the transmission-angle
-   *  proxy is used for the objective either way. */
   computeSigma?: boolean;
-  /** Skip the gravity-torque sweep (expensive at fine level). */
   computeGravity?: boolean;
+  target?: ResolvedTarget;
 };
 
 /**
- * Evaluate a design vector.  This is the single entry point shared by the
- * interactive UI, the Web Worker optimiser and the offline scripts, so the
- * number shown on screen is produced by exactly the same code path that the
- * optimiser minimised.
+ * Evaluate a parameter vector.  Single entry point shared by the UI, the Web
+ * Worker and the offline scripts, so the number shown on screen comes from
+ * exactly the code path the optimiser minimised.
  */
 export function evaluateDesign(x: number[], options: EvalOptions = {}): Metrics {
   const level = options.level ?? 'coarse';
+  const spec = options.spec ?? DEFAULT_SPEC;
   const w = options.weights ?? CONFIG.weights;
   const n = SAMPLES[level];
 
-  const design = arrayToDesign(x);
-  const geo = buildGeometry(design);
+  let geo: Geometry;
+  try {
+    geo = buildGeometry(spec, x);
+  } catch (e) {
+    return emptyMetrics(BAND_LENGTH * 10, `Geometry error: ${(e as Error).message}`);
+  }
 
-  // --- Hard constraint: every printed member within [50, 200] mm ----------
   const lenVio = lengthViolation(geo);
   if (lenVio > 1e-9) {
     return emptyMetrics(BAND_LENGTH + lenVio, `Link length out of range by ${lenVio.toFixed(1)} mm`);
   }
 
-  // --- Full rotation ------------------------------------------------------
   const sw = sweep(geo, n, { computeSigma: options.computeSigma === true });
   if (!sw.fullRotation) {
     const failFrac = 1 - sw.validFrames / sw.frames;
@@ -204,46 +200,50 @@ export function scoreSweep(
   w: typeof CONFIG.weights = CONFIG.weights,
   options: EvalOptions = {},
 ): Metrics {
+  const target = options.target ?? activeTarget;
   const ledPath = sw.poses.map((p) => p.led);
   const bb = boundingBox(ledPath);
 
-  // --- Curve matching, after best rigid (not similarity) placement --------
-  const alignment = bestRigidAlignment(TARGET_HEART.points, ledPath);
-  const alignedTarget = transformAll(TARGET_HEART.points, alignment);
+  // Curve matching, after the best RIGID placement (never scale — the target
+  // size is a physical requirement, not a free parameter).
+  const alignment = bestRigidAlignment(target.points, ledPath);
+  const alignedTarget = transformAll(target.points, alignment);
   const ledInTargetFrame = transformAll(ledPath, invertTransform(alignment));
-  const match = chamferError(ledInTargetFrame, TARGET_HEART.points, TARGET_QUERY);
+  const match = target.degenerate
+    ? {
+        chamferRms: Infinity,
+        rmsLedToTarget: Infinity,
+        rmsTargetToLed: Infinity,
+        maxError: Infinity,
+        paramRms: Infinity,
+      }
+    : chamferError(ledInTargetFrame, target.points, target.query);
 
-  const eCurve = match.chamferRms;
-  const eSize = sizeError(ledPath, CONFIG.targetWidth, CONFIG.targetHeight);
+  const eCurve = Number.isFinite(match.chamferRms) ? match.chamferRms : 1e4;
+  const eSize = sizeError(ledPath, target.width || CONFIG.targetWidth, target.height || CONFIG.targetHeight);
 
-  // --- Closure ------------------------------------------------------------
   const eClosure =
     sw.maxLoopClosureError / CONFIG.loopClosureTol +
     (Number.isFinite(sw.pathClosure) ? sw.pathClosure / CONFIG.pathClosureTol : 100);
 
-  // --- Singularity --------------------------------------------------------
   // Transmission angle is an exact, free proxy for the dyad determinant: each
-  // 2x2 dyad block of dF/dq has determinant proportional to sin(mu), so
-  // sin(mu) -> 0 is precisely the dead point.  muEff folds the two equivalent
-  // extremes (mu -> 0 and mu -> 180) onto one number in [0, 90].
+  // 2x2 dyad block of dF/dq has determinant proportional to sin(mu).
   let muEff = 90;
   for (const p of sw.poses) {
     for (const mu of p.transmissionAngles) muEff = Math.min(muEff, Math.min(mu, 180 - mu));
   }
-  // Grows like 1/sin^2: 60 deg -> 0, 40 deg -> 1.25, 20 deg -> 8, 10 deg -> 35.
   const eSing =
-    muEff < CONFIG.scales.muReference ? (CONFIG.scales.muReference / Math.max(muEff, 0.5)) ** 2 - 1 : 0;
+    muEff < CONFIG.scales.muReference
+      ? (CONFIG.scales.muReference / Math.max(muEff, 0.5)) ** 2 - 1
+      : 0;
 
-  // --- Interference / buildability ---------------------------------------
   const stride = sw.poses.length > 240 ? 2 : 1;
   const sampled = sw.poses.filter((_, i) => i % stride === 0);
   const coll = sweepCollisionPenalty(geo, sampled);
   const build = buildability(geo, sampled);
 
-  // --- Ratio --------------------------------------------------------------
   const eRatio = ratioPenalty(geo);
 
-  // --- Gravity ------------------------------------------------------------
   let peakTau = 0;
   if (options.computeGravity !== false) {
     const gstride = Math.max(1, Math.floor(sw.poses.length / 60));
@@ -266,8 +266,7 @@ export function scoreSweep(
   let J = Object.values(terms).reduce((s, t) => s + t, 0);
 
   // Hard rejection: a mechanism this close to a dead point cannot be driven
-  // through the cycle by a real motor, whatever its trajectory looks like
-  // (brief §43, "ciddi singularity", and the priority order of §59).
+  // through the cycle by a real motor, whatever its trajectory looks like.
   const rejected = muEff < CONFIG.scales.muHardReject;
   if (rejected) J += BAND_ASSEMBLY * 0.5 + (CONFIG.scales.muHardReject - muEff);
 
@@ -306,6 +305,10 @@ export function scoreSweep(
 }
 
 /** Scalar-only fast path used inside the optimiser's inner loop. */
-export function objectiveValue(x: number[], level: EvalLevel = 'coarse'): number {
-  return evaluateDesign(x, { level, computeSigma: false, computeGravity: false }).J;
+export function objectiveValue(
+  x: number[],
+  level: EvalLevel = 'coarse',
+  spec: MechanismSpec = DEFAULT_SPEC,
+): number {
+  return evaluateDesign(x, { level, spec, computeSigma: false, computeGravity: false }).J;
 }

@@ -1,26 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CONFIG } from '../mechanism/config';
-import { TOPOLOGY } from '../mechanism/topology';
-import { arrayToDesign, buildGeometry, designToArray } from '../mechanism/mechanism';
-import type { DesignVector, LinkId, Pose } from '../mechanism/types';
+import { boundsFor, buildGeometry, poseFitsGeometry } from '../mechanism/mechanism';
+import { DEFAULT_SPEC, paramLayout, type MechanismSpec } from '../mechanism/spec';
+import { topologyOf } from '../mechanism/topology';
+import type { LinkId, Pose } from '../mechanism/types';
 import { sweep } from '../kinematics/forwardSolver';
-import { scoreSweep, type Metrics } from '../synthesis/objective';
+import { scoreSweep, setTarget as installTarget, type Metrics } from '../synthesis/objective';
+import {
+  circleTarget,
+  exportTarget,
+  heartTarget,
+  importTarget,
+  nearestSegment,
+  withControlInserted,
+  withControlMoved,
+  withControlRemoved,
+  type TargetCurve,
+} from '../synthesis/targetCurve';
+import { mulberry32, sampleFeasiblePopulation } from '../synthesis/seeding';
 import { gravityTorque, gravityTorqueProfile } from '../dynamics/gravity';
 import { ledKinematics, type Kinematics2 } from '../dynamics/velocity';
 import { motorTorque, type TorqueBreakdown } from '../dynamics/torque';
-import { MechanismViewer, type ViewerState } from '../rendering/MechanismViewer';
+import { MechanismViewer, type Selection, type ViewerState } from '../rendering/MechanismViewer';
 import { DEFAULT_DEBUG, type DebugOptions } from '../rendering/DebugRenderer';
-import { CrankDragController } from '../interaction/crankDrag';
+import { CanvasController } from '../interaction/crankDrag';
 import { rpmToRadPerSec } from '../utils/units';
 import { radToDeg, wrapTwoPi } from '../utils/math';
-import { INITIAL_GUESS, OPTIMIZED, hasOptimizedResults } from './designPresets';
-import { buildExportJson, downloadJson } from './exportDesign';
+import {
+  DEFAULT_START_SPEC,
+  INITIAL_GUESS,
+  OPTIMIZED,
+  OPTIMIZED_SPEC,
+  hasOptimizedResults,
+} from './designPresets';
+import { buildExportJson, downloadJson, readFileText } from './exportDesign';
 import type { SolutionSummary } from '../workers/optimization.worker';
 
 import { DisplayPanel, MotorPanel, DesignPanel, GeometryReport } from '../ui/ControlPanel';
 import { LinkTable, TopologyPanel } from '../ui/LinkTable';
 import { LivePanel, CyclePanel, TargetPanel, ObjectivePanel } from '../ui/MetricsPanel';
 import { OptimizerPanel } from '../ui/OptimizerPanel';
+import {
+  ConstraintsPanel,
+  InspectorPanel,
+  MechanismPanel,
+  TargetEditorPanel,
+} from '../ui/DesignPanels';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section } from '../ui/primitives';
 import { LanguageSwitch } from '../ui/LanguageSwitch';
@@ -28,70 +53,114 @@ import { useT } from '../i18n';
 import { APP_NAME } from '../i18n/translations';
 import '../ui/styles.css';
 
+/** Seed used when a new mechanism size needs a feasible starting design. */
+const SAMPLE_SEED = 20260815;
+
 /** Convert the JSON-stored solutions into the same shape the worker emits. */
 function storedToSummaries(): SolutionSummary[] {
   if (!hasOptimizedResults()) return [];
-  return OPTIMIZED.solutions.map((s, i) => {
-    const m = s.metrics as Record<string, number | boolean>;
-    return {
-      rank: i + 1,
-      x: s.designArray,
-      J: Number(m.objective ?? s.score),
-      rms: Number(m.rmsError_mm ?? NaN),
-      paramRms: Number(m.paramRms_mm ?? NaN),
-      maxError: Number(m.maxError_mm ?? NaN),
-      width: Number(m.width_mm ?? NaN),
-      height: Number(m.height_mm ?? NaN),
-      heartMatchPercent: Number(m.heartMatchPercent ?? NaN),
-      minTransmissionAngle: Number(m.minTransmissionAngle_deg ?? NaN),
-      effectiveTransmissionAngle: Number(m.minTransmissionAngle_deg ?? NaN),
-      singularityMargin: Number(m.singularityMargin ?? NaN),
-      collisionFrames: Number(m.collisionFrames ?? 0),
-      layerCount: Number(m.assemblyLayers ?? 0),
-      peakGravityTorque: Number(m.peakGravityTorque_Nm ?? NaN),
-      validFrames: Number(m.validFrames ?? 0),
-      frames: Number(m.frames ?? 0),
-      fullRotation: Boolean(m.fullRotation),
-      maxLoopClosureError: Number(m.maxLoopClosureError_mm ?? NaN),
-      pathClosure: Number(m.pathClosure_mm ?? NaN),
-      memberLengths: s.members.map((mm) => ({
-        link: mm.link,
-        from: mm.from,
-        to: mm.to,
-        length: mm.length_mm,
-      })),
-      fixedPivots: {
-        O2: [s.fixedPivots.O2.x, s.fixedPivots.O2.y],
-        O4: [s.fixedPivots.O4.x, s.fixedPivots.O4.y],
-        O6: [s.fixedPivots.O6.x, s.fixedPivots.O6.y],
-      },
-    };
-  });
+  const spec = OPTIMIZED_SPEC;
+  const width = paramLayout(spec).length;
+  return OPTIMIZED.solutions
+    // A stored vector only means something against the spec it was optimised
+    // for, so a file from a different mechanism size is dropped rather than
+    // silently reinterpreted against the wrong layout.
+    .filter((s) => s.designArray.length === width)
+    .map((s, i) => {
+      const m = s.metrics as Record<string, number | boolean>;
+      return {
+        rank: i + 1,
+        x: s.designArray,
+        J: Number(m.objective ?? s.score),
+        rms: Number(m.rmsError_mm ?? NaN),
+        paramRms: Number(m.paramRms_mm ?? NaN),
+        maxError: Number(m.maxError_mm ?? NaN),
+        width: Number(m.width_mm ?? NaN),
+        height: Number(m.height_mm ?? NaN),
+        heartMatchPercent: Number(m.heartMatchPercent ?? NaN),
+        minTransmissionAngle: Number(m.minTransmissionAngle_deg ?? NaN),
+        effectiveTransmissionAngle: Number(
+          m.effectiveTransmissionAngle_deg ?? m.minTransmissionAngle_deg ?? NaN,
+        ),
+        singularityMargin: Number(m.singularityMargin ?? NaN),
+        collisionFrames: Number(m.collisionFrames ?? 0),
+        layerCount: Number(m.assemblyLayers ?? 0),
+        peakGravityTorque: Number(m.peakGravityTorque_Nm ?? NaN),
+        spec,
+        validFrames: Number(m.validFrames ?? 0),
+        frames: Number(m.frames ?? 0),
+        fullRotation: Boolean(m.fullRotation),
+        maxLoopClosureError: Number(m.maxLoopClosureError_mm ?? NaN),
+        pathClosure: Number(m.pathClosure_mm ?? NaN),
+        memberLengths: s.members.map((mm) => ({
+          link: mm.link,
+          from: mm.from,
+          to: mm.to,
+          length: mm.length_mm,
+        })),
+        fixedPivots: Object.values(s.fixedPivots).map((p) => [p.x, p.y] as [number, number]),
+      };
+    });
 }
+
+/**
+ * Starting parameters for a mechanism size that has no stored design: draw from
+ * the constructive sampler, which builds a chain that actually assembles.  The
+ * midpoint fallback is a last resort and is labelled as such on screen rather
+ * than presented as a working design.
+ */
+function startingParams(spec: MechanismSpec, seed: number): { params: number[]; sampled: boolean } {
+  const drawn = sampleFeasiblePopulation(spec, 1, mulberry32(seed));
+  if (drawn.length) return { params: drawn[0], sampled: true };
+  return { params: boundsFor(spec).map(([lo, hi]) => (lo + hi) / 2), sampled: false };
+}
+
+type DesignKind = 'optimized' | 'initial' | 'manual' | 'sampled';
 
 export default function App() {
   const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<MechanismViewer | null>(null);
-  const dragRef = useRef<CrankDragController | null>(null);
+  const controllerRef = useRef<CanvasController | null>(null);
 
   const storedSummaries = useMemo(storedToSummaries, []);
-  const startingDesign = useMemo<DesignVector>(
-    () => (storedSummaries.length ? arrayToDesign(storedSummaries[0].x) : INITIAL_GUESS),
-    [storedSummaries],
-  );
 
-  const [design, setDesign] = useState<DesignVector>(startingDesign);
+  /* --------------------------- design state --------------------------- */
+
+  const [spec, setSpec] = useState<MechanismSpec>(
+    storedSummaries.length ? OPTIMIZED_SPEC : DEFAULT_START_SPEC,
+  );
+  const [params, setParams] = useState<number[]>(
+    storedSummaries.length ? storedSummaries[0].x : INITIAL_GUESS,
+  );
   // Store WHICH label applies, not the translated text, so switching language
   // relabels the current design instead of freezing the words chosen earlier.
-  const [designKind, setDesignKind] = useState<'optimized' | 'initial' | 'manual'>(
+  const [designKind, setDesignKind] = useState<DesignKind>(
     storedSummaries.length ? 'optimized' : 'initial',
   );
   const designLabel = t(`app.label.${designKind}` as const);
+
   const [solutions, setSolutions] = useState<SolutionSummary[]>(storedSummaries);
   const [solutionSource, setSolutionSource] = useState<'stored' | 'live'>('stored');
   const [selectedIndex, setSelectedIndex] = useState(storedSummaries.length ? 0 : -1);
+
+  /* --------------------------- target state --------------------------- */
+
+  const [target, setTargetCurve] = useState<TargetCurve>(() => heartTarget());
+  const [targetEditing, setTargetEditing] = useState(false);
+  const [targetMessage, setTargetMessage] = useState<string | null>(null);
+
+  /* ------------------------- interaction state ------------------------ */
+
+  const [selection, setSelection] = useState<Selection>(null);
+  /**
+   * Bumped whenever the constraint panel edits CONFIG.  CONFIG is mutated in
+   * place — deliberately, so every module sees the change without plumbing — so
+   * React needs an explicit signal that the derived analysis is now stale.
+   */
+  const [configVersion, setConfigVersion] = useState(0);
+  const bumpConfig = useCallback(() => setConfigVersion((v) => v + 1), []);
 
   const [theta, setTheta] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -109,36 +178,57 @@ export default function App() {
 
   /* ------------------------- whole-cycle analysis ------------------------ */
 
+  /**
+   * Install the target module-side.  The objective holds one resolved target
+   * (and its spatial index) because that index is reused across every
+   * evaluation; resolving per call would dominate the runtime.
+   */
+  const resolvedTarget = useMemo(() => installTarget(target), [target, configVersion]);
+
   const analysis = useMemo(() => {
-    const geo = buildGeometry(design);
+    const geo = buildGeometry(spec, params);
     const sw = sweep(geo, CONFIG.samplesFine, { computeSigma: true });
     if (!sw.fullRotation || sw.poses.length === 0) {
       return { geo, sw, metrics: null as Metrics | null, torqueProfile: [] };
     }
-    const metrics = scoreSweep(geo, sw, CONFIG.weights, { computeGravity: true });
+    const metrics = scoreSweep(geo, sw, CONFIG.weights, {
+      computeGravity: true,
+      target: resolvedTarget,
+    });
     const stride = Math.max(1, Math.floor(sw.poses.length / 120));
     const torqueProfile = gravityTorqueProfile(
       geo,
       sw.poses.filter((_, i) => i % stride === 0),
     );
     return { geo, sw, metrics, torqueProfile };
-  }, [design]);
+  }, [spec, params, resolvedTarget, configVersion]);
+
+  const topo = useMemo(() => topologyOf(spec), [spec]);
 
   /* ------------------------------ viewer -------------------------------- */
 
+  // Live values the canvas controller needs; kept in refs so the controller is
+  // built once at mount instead of being torn down on every state change.
+  const editingRef = useRef(targetEditing);
+  editingRef.current = targetEditing;
+
   useEffect(() => {
     if (!canvasRef.current) return;
-    const viewer = new MechanismViewer(canvasRef.current, design);
+    const viewer = new MechanismViewer(canvasRef.current, spec, params);
     viewerRef.current = viewer;
 
-    dragRef.current = new CrankDragController(viewer.scene, {
-      onAngle: (t) => {
+    controllerRef.current = new CanvasController(viewer, {
+      onAngle: (th) => {
         setPlaying(false);
-        setTheta(t);
+        setTheta(th);
       },
-      getCrankPin: () => viewer.currentPose?.joints.A ?? viewer.geometry.O2,
-      getO2: () => viewer.geometry.O2,
       getTheta: () => viewer.currentTheta,
+      onSelect: (sel) => setSelection(sel),
+      targetEditing: () => editingRef.current,
+      onControlMove: (index, to) => setTargetCurve((c) => withControlMoved(c, index, to)),
+      onControlAdd: (at) =>
+        setTargetCurve((c) => withControlInserted(c, nearestSegment(c.controls, at), at)),
+      onControlRemove: (index) => setTargetCurve((c) => withControlRemoved(c, index)),
     });
 
     // Keep the on-canvas scale bar honest: it must follow every projection
@@ -175,7 +265,8 @@ export default function App() {
 
     return () => {
       ro.disconnect();
-      dragRef.current?.dispose();
+      controllerRef.current?.dispose();
+      controllerRef.current = null;
       viewer.dispose();
       viewerRef.current = null;
     };
@@ -187,22 +278,40 @@ export default function App() {
   useEffect(() => {
     const v = viewerRef.current;
     if (!v) return;
-    v.setDesign(design);
+    v.setDesign(spec, params);
     v.showFullPath(analysis.sw.fullRotation ? analysis.sw : undefined);
     v.fitView();
     v.setTheta(theta, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [design]);
+  }, [spec, params, configVersion]);
 
-  // Push the aligned target heart and the layer plan, then re-frame the view so
-  // the heart is guaranteed to be inside the canvas.
+  /**
+   * Push the target curve.
+   *
+   * Which frame it is drawn in depends on the mode, and the difference is real:
+   * while editing, the curve is shown in ITS OWN coordinates so a handle sits
+   * exactly where the point being dragged is.  Otherwise it is shown after the
+   * best rigid alignment onto the LED path — the placement the error is actually
+   * measured against.  Drawing the aligned copy while editing would put the
+   * handles somewhere the drag does not correspond to.
+   */
   useEffect(() => {
     const v = viewerRef.current;
     if (!v) return;
-    v.setTargetHeart(analysis.metrics?.alignedTarget ?? []);
+    v.setTargetEditing(targetEditing);
+    if (targetEditing) {
+      v.setTarget(resolvedTarget.points, target.controls, true);
+    } else {
+      v.setTarget(analysis.metrics?.alignedTarget ?? resolvedTarget.points, [], true);
+    }
     v.setLayers(analysis.metrics?.layerOf);
     v.fitView();
-  }, [analysis.metrics]);
+  }, [analysis.metrics, resolvedTarget, target.controls, targetEditing]);
+
+  // Selection highlight.
+  useEffect(() => {
+    viewerRef.current?.setSelection(selection);
+  }, [selection]);
 
   // Display toggles.
   useEffect(() => {
@@ -233,7 +342,7 @@ export default function App() {
     const loop = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (playing) setTheta((t) => t + omega * dt);
+      if (playing) setTheta((th) => th + omega * dt);
 
       const v = viewerRef.current;
       if (v) {
@@ -256,7 +365,11 @@ export default function App() {
 
   /* --------------------------- instant physics -------------------------- */
 
-  const pose: Pose | null = viewerState?.pose ?? viewerRef.current?.currentPose ?? null;
+  // The viewer solves one frame behind a design change, so a pose belonging to
+  // the previous mechanism must not be handed to code that indexes it with the
+  // current geometry's ids.
+  const solved = viewerState?.pose ?? viewerRef.current?.currentPose ?? null;
+  const pose: Pose | null = solved && poseFitsGeometry(analysis.geo, solved) ? solved : null;
 
   const instant = useMemo(() => {
     if (!pose) {
@@ -276,12 +389,19 @@ export default function App() {
 
   /* ------------------------------ actions ------------------------------- */
 
-  const selectSolution = useCallback((x: number[], index: number, source: 'stored' | 'live') => {
-    setDesign(arrayToDesign(x));
-    setSelectedIndex(index);
-    setSolutionSource(source);
-    setDesignKind('optimized');
-  }, []);
+  const selectSolution = useCallback(
+    (s: SolutionSummary, index: number, source: 'stored' | 'live') => {
+      // The spec travels with the solution: a parameter vector indexes a
+      // specific topology, so loading one must switch the mechanism too.
+      setSpec(s.spec);
+      setParams(s.x);
+      setSelectedIndex(index);
+      setSolutionSource(source);
+      setDesignKind('optimized');
+      setSelection(null);
+    },
+    [],
+  );
 
   const handleSolutions = useCallback((s: SolutionSummary[]) => {
     setSolutions(s);
@@ -290,15 +410,76 @@ export default function App() {
   }, []);
 
   const loadInitial = () => {
-    setDesign(INITIAL_GUESS);
+    setSpec(DEFAULT_SPEC);
+    setParams(INITIAL_GUESS);
     setDesignKind('initial');
     setSelectedIndex(-1);
+    setSelection(null);
   };
+
+  /** Change the mechanism size, and draw a starting design for it. */
+  const changeSpec = useCallback(
+    (next: MechanismSpec) => {
+      if (next.dyads.length === spec.dyads.length) return;
+      // A stored optimised design exists only for the shipped size; going back
+      // to it should restore that design rather than resampling.
+      if (next.dyads.length === OPTIMIZED_SPEC.dyads.length && storedSummaries.length) {
+        selectSolution(storedSummaries[0], 0, 'stored');
+        setSolutions(storedSummaries);
+        setSolutionSource('stored');
+        return;
+      }
+      const { params: p, sampled } = startingParams(next, SAMPLE_SEED + next.dyads.length);
+      setSpec(next);
+      setParams(p);
+      setDesignKind(sampled ? 'sampled' : 'manual');
+      setSelectedIndex(-1);
+      setSelection(null);
+    },
+    [spec, storedSummaries, selectSolution],
+  );
+
+  const setParam = useCallback((index: number, value: number) => {
+    if (index < 0) {
+      // A frame dimension changed rather than a design variable; the parameter
+      // vector is unchanged but every derived quantity is stale.
+      bumpConfig();
+      return;
+    }
+    setParams((prev) => {
+      const next = prev.slice();
+      next[index] = value;
+      return next;
+    });
+    setDesignKind('manual');
+    setSelectedIndex(-1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bumpConfig]);
 
   const exportDesign = () => {
     downloadJson(
-      buildExportJson(design, analysis.metrics, designLabel),
+      buildExportJson(spec, params, analysis.metrics, designLabel, target),
       `kreamet-${designKind}-design.json`,
+    );
+  };
+
+  const exportTargetFile = () => {
+    const name = target.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'target';
+    downloadJson(exportTarget(target), `kreamet-target-${name}.json`);
+  };
+
+  const importTargetFile = async () => {
+    const file = await readFileText();
+    if (!file) return;
+    const res = importTarget(file.text, file.name.replace(/\.json$/i, ''));
+    if (!res.ok) {
+      setTargetMessage(t('targetEdit.importFail', { msg: res.error }));
+      return;
+    }
+    setTargetCurve(res.curve);
+    setTargetMessage(
+      t('targetEdit.importOk', { name: res.curve.name, n: res.curve.controls.length }) +
+        (res.note ? ` ${res.note}` : ''),
     );
   };
 
@@ -312,7 +493,11 @@ export default function App() {
       <header className="header">
         <h1>{APP_NAME}</h1>
         <span className="sub">
-          {t('app.subtitle', { w: CONFIG.targetWidth, h: CONFIG.targetHeight })}
+          {t('app.subtitle', {
+            n: topo.links.length,
+            w: CONFIG.targetWidth,
+            h: CONFIG.targetHeight,
+          })}
         </span>
         <span className="spacer" />
         <span className={`badge ${designKind === 'optimized' ? 'pass' : 'info'}`}>
@@ -324,6 +509,32 @@ export default function App() {
       </header>
 
       <aside className="sidebar left">
+        <MechanismPanel spec={spec} onSpec={changeSpec} paramCount={analysis.geo.layout.length} />
+        <TargetEditorPanel
+          target={target}
+          editing={targetEditing}
+          onEditing={(v) => {
+            setTargetEditing(v);
+            setTargetMessage(v ? t('targetEdit.frameNote') : null);
+          }}
+          onTarget={(c) => {
+            setTargetCurve(c);
+            setTargetMessage(null);
+          }}
+          onLoadHeart={() => {
+            setTargetCurve(heartTarget());
+            setTargetMessage(null);
+          }}
+          onLoadCircle={() => {
+            setTargetCurve(circleTarget());
+            setTargetMessage(null);
+          }}
+          onImport={importTargetFile}
+          onExport={exportTargetFile}
+          message={targetMessage}
+          actualWidth={resolvedTarget.width}
+          actualHeight={resolvedTarget.height}
+        />
         <MotorPanel
           rpm={rpm}
           onRpm={setRpm}
@@ -341,7 +552,11 @@ export default function App() {
           onFitView={() => viewerRef.current?.fitView()}
         />
         <CyclePanel metrics={analysis.metrics} />
-        <TargetPanel metrics={analysis.metrics} />
+        <TargetPanel
+          metrics={analysis.metrics}
+          requestedWidth={resolvedTarget.width}
+          requestedHeight={resolvedTarget.height}
+        />
         <Section title={t('torque.title')}>
           <TorqueChart samples={analysis.torqueProfile} cursorTheta={theta} />
           <div className="note">
@@ -350,32 +565,15 @@ export default function App() {
           </div>
         </Section>
         <ObjectivePanel metrics={analysis.metrics} />
-        <TopologyPanel
-          mobility={TOPOLOGY.mobility}
-          loopCount={TOPOLOGY.loopCount}
-          loops={TOPOLOGY.loops}
-        />
+        <TopologyPanel topology={topo} />
+        <ConstraintsPanel onChange={bumpConfig} />
         <DesignPanel
-          design={design}
+          geo={analysis.geo}
           label={designLabel}
-          onChange={(d) => {
-            setDesign(d);
-            setDesignKind('manual');
-            setSelectedIndex(-1);
-          }}
+          onParam={setParam}
           onExport={exportDesign}
         />
-        <GeometryReport
-          design={design}
-          pivots={{ O2: analysis.geo.O2, O4: analysis.geo.O4, O6: analysis.geo.O6 }}
-          members={analysis.geo.members.map((m) => ({
-            linkId: m.linkId,
-            from: String(m.from),
-            to: String(m.to),
-            length: m.length,
-          }))}
-          label={designLabel}
-        />
+        <GeometryReport geo={analysis.geo} label={designLabel} />
       </aside>
 
       <div className="canvas-wrap" ref={wrapRef}>
@@ -386,6 +584,7 @@ export default function App() {
           {viewerState?.solverFailed && (
             <div className="bad">{t('canvas.solverFailed')}</div>
           )}
+          {targetEditing && <div className="warn">{t('targetEdit.hint')}</div>}
         </div>
         <div className="overlay bl">
           <div className="scalebar" style={{ width: `${scaleBarPx}px` }} />
@@ -416,6 +615,14 @@ export default function App() {
       </div>
 
       <aside className="sidebar right">
+        <InspectorPanel
+          selection={selection}
+          geo={analysis.geo}
+          pose={pose}
+          params={params}
+          onParam={setParam}
+          layerOf={analysis.metrics?.layerOf}
+        />
         <LivePanel
           pose={pose}
           theta={theta}
@@ -431,6 +638,8 @@ export default function App() {
           metrics={analysis.metrics}
         />
         <OptimizerPanel
+          spec={spec}
+          target={target}
           onSelect={selectSolution}
           onSolutions={handleSolutions}
           storedSolutions={solutions}
@@ -442,6 +651,8 @@ export default function App() {
           pose={pose}
           collidingLinks={collidingLinks}
           layerOf={analysis.metrics?.layerOf}
+          selection={selection}
+          onSelect={setSelection}
         />
       </aside>
 
@@ -498,5 +709,3 @@ export default function App() {
     </div>
   );
 }
-
-export { designToArray };

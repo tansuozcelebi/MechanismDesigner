@@ -1,49 +1,29 @@
 import * as THREE from 'three';
-import { JOINTS } from '../mechanism/topology';
-import type { JointId, Pose } from '../mechanism/types';
+import type { Geometry } from '../mechanism/mechanism';
+import { topologyOf } from '../mechanism/topology';
+import type { Pose } from '../mechanism/types';
 import { THEME } from './theme';
 import { Z, makeDisc, makeRing, disposeTree } from './Scene';
 
 /**
- * Ground pivots and moving revolute pairs (brief §30).
+ * Ground pivots, moving revolute pairs and the LED.
  *
- * Ground pivots get the conventional hatched triangle so the frame is
- * unmistakable; moving joints get a lighter ring with a visible centre.
+ * One marker per POINT, not per joint: several revolute pairs can sit on the
+ * same rigid point, and drawing a stack of identical rings there would just look
+ * like a rendering artefact.
  */
 const GROUND_R = 9;
 const MOVING_R = 7;
 
+type Marker = { pointId: string; holder: THREE.Object3D; ring?: THREE.Mesh };
+
 export class JointRenderer {
   readonly group = new THREE.Group();
-  private markers = new Map<JointId, THREE.Object3D>();
+  private markers: Marker[] = [];
   private ledDot: THREE.Mesh;
   private ledGlow: THREE.Mesh;
 
   constructor() {
-    for (const j of JOINTS) {
-      const holder = new THREE.Group();
-      if (j.kind === 'fixed') {
-        holder.add(this.makeGroundSymbol());
-        const body = makeDisc(GROUND_R, THEME.groundPivot);
-        body.position.z = Z.joint + 1;
-        holder.add(body);
-        const core = makeDisc(GROUND_R * 0.35, THEME.jointCore);
-        core.position.z = Z.joint + 2;
-        holder.add(core);
-      } else {
-        const ring = makeRing(MOVING_R * 0.55, MOVING_R, THEME.movingJoint);
-        ring.position.z = Z.joint + 1;
-        holder.add(ring);
-        const core = makeDisc(MOVING_R * 0.3, THEME.movingJoint);
-        core.position.z = Z.joint + 2;
-        holder.add(core);
-      }
-      holder.position.z = Z.joint;
-      this.group.add(holder);
-      this.markers.set(j.id, holder);
-    }
-
-    // LED: bright red point with a soft glow (brief §30).
     this.ledGlow = makeDisc(16, THEME.ledGlow, 40);
     (this.ledGlow.material as THREE.MeshBasicMaterial).opacity = 0.22;
     this.ledGlow.position.z = Z.led;
@@ -54,7 +34,50 @@ export class JointRenderer {
     this.group.add(this.ledDot);
   }
 
-  /** Fixed-frame hatching: the standard ground symbol under a fixed pivot. */
+  /** Rebuild markers for a mechanism. Call when the spec changes. */
+  build(geo: Geometry): void {
+    for (const m of this.markers) {
+      this.group.remove(m.holder);
+      disposeTree(m.holder);
+    }
+    this.markers = [];
+
+    const topo = topologyOf(geo.spec);
+    const seen = new Map<string, 'fixed' | 'revolute'>();
+    for (const j of topo.joints) {
+      const prev = seen.get(j.pointId);
+      // A point is drawn as ground if any pair there is grounded.
+      seen.set(j.pointId, prev === 'fixed' ? 'fixed' : j.kind);
+    }
+
+    for (const [pointId, kind] of seen) {
+      const holder = new THREE.Group();
+      if (kind === 'fixed') {
+        holder.add(this.makeGroundSymbol());
+        const body = makeDisc(GROUND_R, THEME.groundPivot);
+        body.position.z = Z.joint + 1;
+        holder.add(body);
+        const core = makeDisc(GROUND_R * 0.35, THEME.jointCore);
+        core.position.z = Z.joint + 2;
+        holder.add(core);
+        holder.position.z = Z.joint;
+        this.group.add(holder);
+        this.markers.push({ pointId, holder });
+      } else {
+        const ring = makeRing(MOVING_R * 0.55, MOVING_R, THEME.movingJoint);
+        ring.position.z = Z.joint + 1;
+        holder.add(ring);
+        const core = makeDisc(MOVING_R * 0.3, THEME.movingJoint);
+        core.position.z = Z.joint + 2;
+        holder.add(core);
+        holder.position.z = Z.joint;
+        this.group.add(holder);
+        this.markers.push({ pointId, holder, ring });
+      }
+    }
+  }
+
+  /** Standard hatched ground symbol under a fixed pivot. */
   private makeGroundSymbol(): THREE.Object3D {
     const g = new THREE.Group();
     const w = 22;
@@ -85,11 +108,17 @@ export class JointRenderer {
     return g;
   }
 
-  update(pose: Pose): void {
-    for (const [id, obj] of this.markers) {
-      const p = pose.joints[id];
-      obj.position.x = p.x;
-      obj.position.y = p.y;
+  update(pose: Pose, selectedPoint?: string | null): void {
+    for (const m of this.markers) {
+      const p = pose.points[m.pointId];
+      if (!p) continue;
+      m.holder.position.x = p.x;
+      m.holder.position.y = p.y;
+      if (m.ring) {
+        (m.ring.material as THREE.MeshBasicMaterial).color.setHex(
+          selectedPoint === m.pointId ? THEME.selection : THEME.movingJoint,
+        );
+      }
     }
     this.ledDot.position.x = pose.led.x;
     this.ledDot.position.y = pose.led.y;
@@ -97,10 +126,26 @@ export class JointRenderer {
     this.ledGlow.position.y = pose.led.y;
   }
 
+  /** Nearest drawn point to a world position, for canvas picking. */
+  hitTest(
+    pose: Pose,
+    world: { x: number; y: number },
+    tolerance: number,
+  ): { pointId: string; distance: number } | null {
+    let best: { pointId: string; distance: number } | null = null;
+    for (const m of this.markers) {
+      const p = pose.points[m.pointId];
+      if (!p) continue;
+      const d = Math.hypot(world.x - p.x, world.y - p.y);
+      if (d < tolerance && (!best || d < best.distance)) best = { pointId: m.pointId, distance: d };
+    }
+    return best;
+  }
+
   /** Keep markers a constant size on screen regardless of zoom. */
   setScale(mmPerPixel: number): void {
     const s = Math.max(0.35, Math.min(3, mmPerPixel / 0.6));
-    for (const obj of this.markers.values()) obj.scale.setScalar(s);
+    for (const m of this.markers) m.holder.scale.setScalar(s);
     this.ledDot.scale.setScalar(s);
     this.ledGlow.scale.setScalar(s);
   }

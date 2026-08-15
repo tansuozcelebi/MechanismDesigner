@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import type { Geometry } from '../mechanism/mechanism';
-import { JOINTS, LINKS } from '../mechanism/topology';
-import type { JointId, Pose } from '../mechanism/types';
+import { topologyOf } from '../mechanism/topology';
+import type { Pose } from '../mechanism/types';
 import { poseMassProperties } from '../dynamics/massProperties';
 import { jointVelocities } from '../dynamics/velocity';
 import { loopVectors } from '../kinematics/loopClosure';
 import { THEME } from './theme';
 import { Z, makeDisc, disposeTree } from './Scene';
 import { makeLabel, scaleLabel, type Label } from './labels';
-import { midpoint, type Vec2 } from '../utils/math';
+import type { Vec2 } from '../utils/math';
 
 /**
  * Engineering verification overlay (brief §38): joint and link names,
@@ -101,38 +101,62 @@ export class DebugRenderer {
     // wrappers are discarded here.
     this.labels = [];
 
-    const { joints, led } = pose;
+    const { points, led } = pose;
+    const topo = topologyOf(geo.spec);
+    const ledId = geo.ledId;
+
+    // One label per POINT (several pairs can share one), so names do not stack.
+    const pointKinds = new Map<string, 'fixed' | 'revolute'>();
+    for (const j of topo.joints) {
+      const prev = pointKinds.get(j.pointId);
+      pointKinds.set(j.pointId, prev === 'fixed' ? 'fixed' : j.kind);
+    }
+
+    const nameOf = (id: string) => geo.spec.labels?.[id] ?? id;
 
     if (opts.names) {
-      for (const j of JOINTS) {
-        this.addLabel(j.id, joints[j.id], j.kind === 'fixed' ? '#e8eef7' : '#9fb3cc', 14);
+      for (const [pid, kind] of pointKinds) {
+        const p = points[pid];
+        if (!p) continue;
+        this.addLabel(nameOf(pid), p, kind === 'fixed' ? '#e8eef7' : '#9fb3cc', 14);
       }
-      this.addLabel('P_LED', led, '#ff8fa3', 16);
+      this.addLabel(nameOf(ledId), led, '#ff8fa3', 16);
 
-      for (const link of LINKS) {
+      for (const link of topo.links) {
         if (link.id === 'ground') continue;
-        const pts = link.jointIds.map((id) => joints[id as JointId]);
+        const pts = link.jointIds
+          .map((jid) => topo.joints.find((j) => j.id === jid)?.pointId)
+          .map((pid) => (pid ? points[pid] : undefined))
+          .filter((p): p is NonNullable<typeof p> => Boolean(p));
+        if (!pts.length) continue;
         const c = pts.reduce(
           (acc, p) => ({ x: acc.x + p.x / pts.length, y: acc.y + p.y / pts.length }),
           { x: 0, y: 0 },
         );
-        this.addLabel(link.id, c, '#7f93ad', -12);
+        this.addLabel(nameOf(link.id), c, '#7f93ad', -12);
       }
     }
 
     if (opts.coordinates) {
-      for (const j of JOINTS) {
-        const p = joints[j.id];
+      for (const pid of pointKinds.keys()) {
+        const p = points[pid];
+        if (!p) continue;
         this.addLabel(`(${p.x.toFixed(1)}, ${p.y.toFixed(1)})`, p, '#61708a', -14);
       }
       this.addLabel(`(${led.x.toFixed(1)}, ${led.y.toFixed(1)})`, led, '#c98a99', -16);
     }
 
     if (opts.loops) {
-      const vecs = loopVectors(joints);
-      const byLoop: number[][] = [[], [], []];
-      for (const v of vecs) byLoop[v.loop].push(v.from.x, v.from.y, Z.debug, v.to.x, v.to.y, Z.debug);
-      byLoop.forEach((pts, i) => this.addSegments(pts, THEME.loopVec[i], 0.8));
+      const vecs = loopVectors(geo, points);
+      const byLoop = new Map<number, number[]>();
+      for (const v of vecs) {
+        const arr = byLoop.get(v.loop) ?? [];
+        arr.push(v.from.x, v.from.y, Z.debug, v.to.x, v.to.y, Z.debug);
+        byLoop.set(v.loop, arr);
+      }
+      for (const [i, pts] of byLoop) {
+        this.addSegments(pts, THEME.loopVec[i % THEME.loopVec.length], 0.8);
+      }
     }
 
     if (opts.com || opts.gravity) {
@@ -162,26 +186,18 @@ export class DebugRenderer {
       const vmax = Math.max(1e-6, ...speeds);
       const k = 55 / vmax;
       for (const [id, v] of Object.entries(vels)) {
-        const base = id === 'P_LED' ? led : joints[id as JointId];
+        const base = points[id];
+        if (!base) continue;
         this.addArrow(base, { x: base.x + v.x * k, y: base.y + v.y * k }, THEME.velocity);
       }
     }
 
     if (opts.transmission) {
-      const dyads: [JointId, string][] = [
-        ['B', 'μ₁'],
-        ['E', 'μ₂'],
-        ['F', 'μ₃'],
-      ];
-      dyads.forEach(([jid, name], i) => {
-        const mu = pose.transmissionAngles[i];
+      pose.transmissionAngles.forEach((mu, i) => {
+        const p = points[`J${i}`];
+        if (!p) return;
         const good = mu >= 40 && mu <= 140;
-        this.addLabel(
-          `${name} ${mu.toFixed(1)}°`,
-          midpoint(joints[jid], joints[jid]),
-          good ? '#46c1a4' : '#e05252',
-          26,
-        );
+        this.addLabel(`μ${i + 1} ${mu.toFixed(1)}°`, p, good ? '#46c1a4' : '#e05252', 26);
       });
     }
   }

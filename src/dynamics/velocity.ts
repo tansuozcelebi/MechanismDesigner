@@ -2,6 +2,7 @@ import type { Geometry } from '../mechanism/mechanism';
 import type { Pose } from '../mechanism/types';
 import { solvePose } from '../kinematics/forwardSolver';
 import { mmToM } from '../utils/units';
+import { branchSeed } from './branchSeed';
 import type { Vec2 } from '../utils/math';
 
 /**
@@ -34,7 +35,7 @@ export function ledKinematics(
   omega: number,
   dTheta = 1e-3,
 ): Kinematics2 {
-  const seed = { B: pose.joints.B, E: pose.joints.E, F: pose.joints.F };
+  const seed = branchSeed(pose);
   const plus = solvePose(geo, pose.theta + dTheta, seed, { computeSigma: false });
   const minus = solvePose(geo, pose.theta - dTheta, seed, { computeSigma: false });
 
@@ -81,21 +82,19 @@ export function jointVelocities(
   omega: number,
   dTheta = 1e-3,
 ): Record<string, Vec2> {
-  const seed = { B: pose.joints.B, E: pose.joints.E, F: pose.joints.F };
+  const seed = branchSeed(pose);
   const plus = solvePose(geo, pose.theta + dTheta, seed, { computeSigma: false });
   const minus = solvePose(geo, pose.theta - dTheta, seed, { computeSigma: false });
   const out: Record<string, Vec2> = {};
   if (!plus.ok || !minus.ok) return out;
-  for (const key of Object.keys(pose.joints)) {
-    const k = key as keyof typeof pose.joints;
+  for (const key of Object.keys(pose.points)) {
+    const a = plus.points[key];
+    const b = minus.points[key];
+    if (!a || !b) continue;
     out[key] = {
-      x: ((plus.joints[k].x - minus.joints[k].x) / (2 * dTheta)) * omega,
-      y: ((plus.joints[k].y - minus.joints[k].y) / (2 * dTheta)) * omega,
+      x: ((a.x - b.x) / (2 * dTheta)) * omega,
+      y: ((a.y - b.y) / (2 * dTheta)) * omega,
     };
   }
-  out.P_LED = {
-    x: ((plus.led.x - minus.led.x) / (2 * dTheta)) * omega,
-    y: ((plus.led.y - minus.led.y) / (2 * dTheta)) * omega,
-  };
   return out;
 }

@@ -3,6 +3,7 @@ import type { Geometry } from '../mechanism/mechanism';
 import type { Pose } from '../mechanism/types';
 import { solvePose } from '../kinematics/forwardSolver';
 import { poseMassProperties } from './massProperties';
+import { branchSeed } from './branchSeed';
 import { G_SI, mmToM } from '../utils/units';
 
 /**
@@ -36,7 +37,7 @@ export function gravityTorque(
   dTheta = 1e-3,
   lineDensity: number = CONFIG.lineDensity,
 ): number {
-  const seed = { B: pose.joints.B, E: pose.joints.E, F: pose.joints.F };
+  const seed = branchSeed(pose);
   const plus = solvePose(geo, pose.theta + dTheta, seed, { computeSigma: false });
   const minus = solvePose(geo, pose.theta - dTheta, seed, { computeSigma: false });
   if (!plus.ok || !minus.ok) return Number.NaN;

@@ -1,5 +1,6 @@
 import { CONFIG } from '../mechanism/config';
 import type { Pose } from '../mechanism/types';
+import { dyadJointId } from '../mechanism/spec';
 import { dist, type Vec2 } from '../utils/math';
 
 /**
@@ -9,7 +10,7 @@ import { dist, type Vec2 } from '../utils/math';
  * frame and flag any discontinuous joint motion.
  */
 export class BranchTracker {
-  private prev: { B: Vec2; E: Vec2; F: Vec2 } | null = null;
+  private prev: Vec2[] | null = null;
   public jumps = 0;
   public lastJumpMagnitude = 0;
 
@@ -19,7 +20,7 @@ export class BranchTracker {
     this.lastJumpMagnitude = 0;
   }
 
-  get state(): { B: Vec2; E: Vec2; F: Vec2 } | null {
+  get state(): Vec2[] | null {
     return this.prev;
   }
 
@@ -29,14 +30,16 @@ export class BranchTracker {
    * @returns true when the new pose is continuous with the previous one.
    */
   accept(pose: Pose, maxStep: number = CONFIG.assemblyJumpTol): boolean {
-    const next = { B: pose.joints.B, E: pose.joints.E, F: pose.joints.F };
+    const next: Vec2[] = [];
+    for (let k = 0; ; k++) {
+      const p = pose.points[dyadJointId(k)];
+      if (!p) break;
+      next.push(p);
+    }
     let ok = true;
-    if (this.prev) {
-      const jump = Math.max(
-        dist(this.prev.B, next.B),
-        dist(this.prev.E, next.E),
-        dist(this.prev.F, next.F),
-      );
+    if (this.prev && this.prev.length === next.length) {
+      let jump = 0;
+      for (let k = 0; k < next.length; k++) jump = Math.max(jump, dist(this.prev[k], next[k]));
       this.lastJumpMagnitude = jump;
       if (jump > maxStep) {
         this.jumps++;

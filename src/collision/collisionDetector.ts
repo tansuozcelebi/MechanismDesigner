@@ -1,7 +1,7 @@
 import { CONFIG } from '../mechanism/config';
 import type { Geometry } from '../mechanism/mechanism';
-import { linksShareJoint } from '../mechanism/topology';
-import type { JointId, LinkId, Pose } from '../mechanism/types';
+import { linksShareJoint, topologyOf } from '../mechanism/topology';
+import type { LinkId, Pose } from '../mechanism/types';
 import type { Vec2 } from '../utils/math';
 import { segmentSegmentDistance } from './segmentDistance';
 
@@ -9,12 +9,10 @@ export type Segment = { linkId: LinkId; a: Vec2; b: Vec2; label: string };
 
 /** Every physical member of the moving bodies, as a world-space segment. */
 export function poseSegments(geo: Geometry, pose: Pose): Segment[] {
-  const at = (id: JointId | 'P_LED'): Vec2 =>
-    id === 'P_LED' ? pose.led : pose.joints[id];
   return geo.members.map((m) => ({
     linkId: m.linkId,
-    a: at(m.from),
-    b: at(m.to),
+    a: pose.points[m.from],
+    b: pose.points[m.to],
     label: `${m.from}-${m.to}`,
   }));
 }
@@ -40,6 +38,7 @@ export function detectCollisions(
   pose: Pose,
   clearance: number = CONFIG.linkWidth,
 ): CollisionReport {
+  const topo = topologyOf(geo.spec);
   const segs = poseSegments(geo, pose);
   const pairs: { i: number; j: number; distance: number }[] = [];
   const collidingLinks = new Set<LinkId>();
@@ -51,7 +50,7 @@ export function detectCollisions(
       const A = segs[i];
       const B = segs[j];
       if (A.linkId === B.linkId) continue;
-      if (linksShareJoint(A.linkId, B.linkId)) continue;
+      if (linksShareJoint(topo, A.linkId, B.linkId)) continue;
       const d = segmentSegmentDistance(A.a, A.b, B.a, B.b);
       if (d < minDistance) minDistance = d;
       if (d < clearance) {

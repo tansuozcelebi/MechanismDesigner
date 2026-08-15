@@ -1,6 +1,7 @@
 import { CONFIG } from '../mechanism/config';
 import type { Geometry } from '../mechanism/mechanism';
-import type { JointId, Pose, PoseResult } from '../mechanism/types';
+import { CRANK_ID, dyadJointId, groundJointId } from '../mechanism/spec';
+import type { LinkId, Pose, PoseResult } from '../mechanism/types';
 import {
   angleOf,
   circleCircleIntersectionEx,
@@ -17,42 +18,19 @@ import { loopClosureResidual } from './loopClosure';
 import { constraintJacobianSigmaMin } from './jacobian';
 
 /**
- * Previous-configuration memory used for branch continuity.  Holding the three
- * dyad output joints is sufficient: everything else on each body follows
- * rigidly once its two defining joints are known.
+ * Previous-configuration memory used for branch continuity: the unknown joint
+ * of every dyad. Everything else on a body follows rigidly once its anchor and
+ * dyad joint are known.
  */
-export type BranchState = { B: Vec2; E: Vec2; F: Vec2 } | null;
+export type BranchState = Vec2[] | null;
 
 /**
- * Solve one RRR dyad.  With no previous state we fall back to the explicit
- * assembly selector (+1 picks the CCW-side root), which is what defines the
- * assembly mode of the very first frame.
- */
-function solveDyad(
-  c0: Vec2,
-  r0: number,
-  c1: Vec2,
-  r1: number,
-  previous: Vec2 | null,
-  selector: number,
-): { p: Vec2; slack: number } | { p: null; gap: number } {
-  const res = circleCircleIntersectionEx(c0, r0, c1, r1);
-  if (res.points === null) return { p: null, gap: res.gap };
-  const [p0, p1] = res.points;
-  if (previous === null) return { p: selector >= 0 ? p0 : p1, slack: res.slack };
-  const d0 = dist(p0, previous);
-  const d1 = dist(p1, previous);
-  return { p: d0 <= d1 ? p0 : p1, slack: res.slack };
-}
-
-/**
- * Forward kinematics at one motor angle.
+ * Forward kinematics at one motor angle, for any dyad count.
  *
- * The chain decomposes into three RRR Assur dyads solved in series, so every
- * joint is obtained in closed form by circle-circle intersection.  No Newton
- * iteration is used anywhere; the loop-closure residual is therefore a genuine
- * independent check of the solution rather than the solver's own stopping
- * criterion.
+ * The chain is a series of RRR Assur dyads, so each unknown joint comes from a
+ * closed-form circle-circle intersection against points that are already known.
+ * No Newton iteration is used at any size; the loop-closure residual therefore
+ * remains a genuine independent check rather than a solver tolerance.
  */
 export function solvePose(
   geo: Geometry,
@@ -60,108 +38,122 @@ export function solvePose(
   previous: BranchState = null,
   opts: { computeSigma?: boolean } = {},
 ): PoseResult {
-  const d = geo.design;
-  const { O2, O4, O6 } = geo;
+  const spec = geo.spec;
+  const points: Record<string, Vec2> = {};
 
-  // --- Driver -------------------------------------------------------------
-  const A = v2(
-    O2.x + CONFIG.crankLength * Math.cos(theta),
-    O2.y + CONFIG.crankLength * Math.sin(theta),
+  geo.ground.forEach((p, i) => {
+    points[groundJointId(i)] = p;
+  });
+
+  const O2 = geo.ground[0];
+  points.A = v2(
+    O2.x + geo.crankLength * Math.cos(theta),
+    O2.y + geo.crankLength * Math.sin(theta),
   );
 
-  // --- Dyad I: links 3 & 4, unknown joint B ------------------------------
-  const s1 = solveDyad(A, d.lAB, O4, d.lO4B, previous?.B ?? null, d.branch1);
-  if (s1.p === null)
-    return { theta, ok: false, reason: 'Dyad I (A-B-O4) cannot assemble', gap: s1.gap };
-  const B = s1.p;
+  const jointPositions: Vec2[] = [];
+  const transmissionAngles: number[] = [];
 
-  // Rigid points carried by links 3 and 4.
-  const C = localPoint(A, B, d.c3r, degToRad(d.c3a));
-  const D = localPoint(O4, B, d.d4r, degToRad(d.d4a));
+  for (let k = 0; k < spec.dyads.length; k++) {
+    const aBar = geo.bars[2 * k];
+    const bBar = geo.bars[2 * k + 1];
 
-  // --- Dyad II: links 5 & 6, unknown joint E ------------------------------
-  const s2 = solveDyad(C, d.lCE, O6, d.lO6E, previous?.E ?? null, d.branch2);
-  if (s2.p === null)
-    return { theta, ok: false, reason: 'Dyad II (C-E-O6) cannot assemble', gap: s2.gap };
-  const E = s2.p;
+    const pa = points[aBar.anchorId];
+    const pb = points[bBar.anchorId];
+    if (!pa || !pb) {
+      return {
+        theta,
+        ok: false,
+        reason: `Dyad ${k + 1} anchor is not resolved (${aBar.anchorId}, ${bBar.anchorId})`,
+        gap: 1e6,
+      };
+    }
 
-  const G = localPoint(O6, E, d.g6r, degToRad(d.g6a));
+    const res = circleCircleIntersectionEx(pa, aBar.length, pb, bBar.length);
+    if (res.points === null) {
+      return {
+        theta,
+        ok: false,
+        reason: `Dyad ${k + 1} cannot assemble`,
+        gap: res.gap,
+      };
+    }
 
-  // --- Dyad III: links 7 & 8, unknown joint F -----------------------------
-  const s3 = solveDyad(D, d.lDF, G, d.lGF, previous?.F ?? null, d.branch3);
-  if (s3.p === null)
-    return { theta, ok: false, reason: 'Dyad III (D-F-G) cannot assemble', gap: s3.gap };
-  const F = s3.p;
+    const prev = previous?.[k] ?? null;
+    const [p0, p1] = res.points;
+    const J = prev === null ? p0 : dist(p0, prev) <= dist(p1, prev) ? p0 : p1;
 
-  // --- Output point -------------------------------------------------------
-  const led = localPoint(G, F, d.p8r, degToRad(d.p8a));
+    points[dyadJointId(k)] = J;
+    jointPositions.push(J);
+    transmissionAngles.push(radToDeg(interiorAngle(pa, J, pb)));
 
-  const joints: Record<JointId, Vec2> = { O2, O4, O6, A, B, C, D, E, F, G };
-
-  for (const key of Object.keys(joints) as JointId[]) {
-    const p = joints[key];
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y))
-      return { theta, ok: false, reason: `Non-finite coordinate at ${key}`, gap: 1e6 };
+    // Rigid third points ride on their bar's local frame.
+    for (const bar of [aBar, bBar]) {
+      if (!bar.extra) continue;
+      points[bar.extra.id] = localPoint(
+        points[bar.anchorId],
+        J,
+        bar.extra.r,
+        degToRad(bar.extra.angleDeg),
+      );
+    }
   }
-  if (!Number.isFinite(led.x) || !Number.isFinite(led.y))
-    return { theta, ok: false, reason: 'Non-finite LED coordinate', gap: 1e6 };
 
-  const linkAngles = {
-    L2: angleOf(sub(A, O2)),
-    L3: angleOf(sub(B, A)),
-    L4: angleOf(sub(B, O4)),
-    L5: angleOf(sub(E, C)),
-    L6: angleOf(sub(E, O6)),
-    L7: angleOf(sub(F, D)),
-    L8: angleOf(sub(F, G)),
+  for (const [id, p] of Object.entries(points)) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y))
+      return { theta, ok: false, reason: `Non-finite coordinate at ${id}`, gap: 1e6 };
+  }
+
+  const led = points[geo.ledId];
+  if (!led) return { theta, ok: false, reason: 'LED point is not defined by this spec', gap: 1e6 };
+
+  const linkAngles: Record<LinkId, number> = {
+    [CRANK_ID]: angleOf(sub(points.A, O2)),
   };
-
-  // Transmission angle of each dyad = interior angle at its output joint.
-  const transmissionAngles: [number, number, number] = [
-    radToDeg(interiorAngle(A, B, O4)),
-    radToDeg(interiorAngle(C, E, O6)),
-    radToDeg(interiorAngle(D, F, G)),
-  ];
+  for (const bar of geo.bars) {
+    linkAngles[bar.id] = angleOf(sub(points[bar.jointId], points[bar.anchorId]));
+  }
 
   return {
     theta,
-    joints,
+    points,
     led,
     linkAngles,
-    loopClosureError: loopClosureResidual(geo, joints, led),
-    sigmaMin: opts.computeSigma === false ? Number.NaN : constraintJacobianSigmaMin(geo, joints),
+    loopClosureError: loopClosureResidual(geo, points),
+    sigmaMin:
+      opts.computeSigma === false ? Number.NaN : constraintJacobianSigmaMin(geo, points),
     transmissionAngles,
     ok: true,
   };
 }
 
+export type PoseFailureRecord = { theta: number; reason: string; gap: number };
+
 export type Sweep = {
   poses: Pose[];
   failures: PoseFailureRecord[];
-  /** Number of angles attempted. */
   frames: number;
   validFrames: number;
   fullRotation: boolean;
-  /** Accumulated assembly gap over failed frames (mm) — smooth infeasibility measure. */
+  /** Accumulated assembly gap over failed frames (mm). */
   totalGap: number;
   assemblyJumps: number;
   maxLoopClosureError: number;
   minSigma: number;
   minTransmissionAngle: number;
-  /** |P_LED(0) - P_LED(2pi)| in mm. */
+  /** |P_LED(0) − P_LED(2π)| in mm. */
   pathClosure: number;
 };
 
-export type PoseFailureRecord = { theta: number; reason: string; gap: number };
+const stateOf = (p: Pose, n: number): Vec2[] =>
+  Array.from({ length: n }, (_, k) => p.points[dyadJointId(k)]);
 
 /**
  * Sweep the motor through a full revolution.
  *
- * Two passes: the first frame fixes the assembly mode from the explicit
- * selectors, then each subsequent frame is seeded with the previous solution so
- * the solver stays on one branch (brief §10).  A second lap is used to seed the
- * start point so that theta = 0 is solved with the same continuity the rest of
- * the cycle enjoys, which makes the path-closure test meaningful.
+ * A warm-up lap settles the assembly mode before the reported cycle starts, so
+ * theta = 0 is solved with the same branch continuity as every other frame and
+ * the path-closure test is meaningful.
  */
 export function sweep(
   geo: Geometry,
@@ -170,25 +162,23 @@ export function sweep(
 ): Sweep {
   const computeSigma = opts.computeSigma !== false;
   const stopOnFailure = opts.stopOnFailure === true;
-
+  const nDyads = geo.spec.dyads.length;
   const step = (2 * Math.PI) / samples;
+
   const poses: Pose[] = [];
   const failures: PoseFailureRecord[] = [];
   let totalGap = 0;
-  let prev: BranchState = null;
 
-  // Warm-up lap (cheap, no sigma) so the reported cycle starts on a settled branch.
   let warm: BranchState = null;
   for (let i = 0; i < samples; i++) {
     const r = solvePose(geo, i * step, warm, { computeSigma: false });
-    if (r.ok) warm = { B: r.joints.B, E: r.joints.E, F: r.joints.F };
+    if (r.ok) warm = stateOf(r, nDyads);
     else {
-      // Warm-up failed: report on the real pass, don't mask it.
       warm = null;
       break;
     }
   }
-  prev = warm;
+  let prev: BranchState = warm;
 
   let assemblyJumps = 0;
   let maxLoop = 0;
@@ -201,19 +191,17 @@ export function sweep(
     if (!r.ok) {
       failures.push({ theta, reason: r.reason, gap: r.gap });
       totalGap += r.gap;
-      prev = null; // force re-seeding from the explicit selectors
+      prev = null;
       if (stopOnFailure) break;
       continue;
     }
+    const next = stateOf(r, nDyads);
     if (prev) {
-      const jump = Math.max(
-        dist(prev.B, r.joints.B),
-        dist(prev.E, r.joints.E),
-        dist(prev.F, r.joints.F),
-      );
+      let jump = 0;
+      for (let k = 0; k < nDyads; k++) jump = Math.max(jump, dist(prev[k], next[k]));
       if (jump > CONFIG.assemblyJumpTol) assemblyJumps++;
     }
-    prev = { B: r.joints.B, E: r.joints.E, F: r.joints.F };
+    prev = next;
     poses.push(r);
     maxLoop = Math.max(maxLoop, r.loopClosureError);
     if (computeSigma) minSigma = Math.min(minSigma, r.sigmaMin);
@@ -223,16 +211,11 @@ export function sweep(
   const validFrames = poses.length;
   const fullRotation = validFrames === samples && failures.length === 0;
 
-  // Path closure: distance between the first sample and the wrap-around sample.
   let pathClosure = Number.POSITIVE_INFINITY;
   if (fullRotation) {
-    const first = poses[0];
-    const wrap = solvePose(geo, 2 * Math.PI, {
-      B: poses[poses.length - 1].joints.B,
-      E: poses[poses.length - 1].joints.E,
-      F: poses[poses.length - 1].joints.F,
-    });
-    pathClosure = wrap.ok ? dist(first.led, wrap.led) : Number.POSITIVE_INFINITY;
+    const last = poses[poses.length - 1];
+    const wrap = solvePose(geo, 2 * Math.PI, stateOf(last, nDyads), { computeSigma: false });
+    pathClosure = wrap.ok ? dist(poses[0].led, wrap.led) : Number.POSITIVE_INFINITY;
   }
 
   return {

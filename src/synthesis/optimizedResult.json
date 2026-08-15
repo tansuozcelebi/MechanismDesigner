@@ -36,9 +36,9 @@
     "joints": 10,
     "mobility": 1,
     "loops": [
-      "I   : O2 -[L2]- A -[L3]- B -[L4]- O4 -[ground]- O2",
-      "II  : O2 -[L2]- A -[L3]- C -[L5]- E -[L6]- O6 -[ground]- O2",
-      "III : O4 -[L4]- D -[L7]- F -[L8]- G -[L6]- O6 -[ground]- O4"
+      "1 : A —[L3]— B —[L4]— O4 … frame",
+      "2 : C —[L5]— E —[L6]— O6 … frame",
+      "3 : D —[L7]— F —[L8]— G … frame"
     ]
   },
   "target": {
@@ -49,7 +49,7 @@
   "solutions": [
     {
       "rank": 1,
-      "score": 1.181324,
+      "score": 1.180735,
       "design": {
         "phi6": 82.4323,
         "lAB": 94.0315,
@@ -85,7 +85,7 @@
         -8.8504
       ],
       "metrics": {
-        "objective": 1.181324,
+        "objective": 1.180735,
         "rmsError_mm": 11.4097,
         "paramRms_mm": 16.5903,
         "maxError_mm": 21.0228,
@@ -124,100 +124,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 94.031
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 50.604
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 144.625
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 89.767
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 200
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 157.175
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.795
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 101.456
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 198.151
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 199.994
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 142.664
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 74.222
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 200
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 127.175
         }
       ]
     },
     {
       "rank": 2,
-      "score": 1.194236,
+      "score": 1.193623,
       "design": {
         "phi6": 83.2885,
         "lAB": 92.7688,
@@ -253,7 +253,7 @@
         -18.392
       ],
       "metrics": {
-        "objective": 1.194236,
+        "objective": 1.193623,
         "rmsError_mm": 11.5891,
         "paramRms_mm": 16.5785,
         "maxError_mm": 20.9162,
@@ -292,100 +292,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 92.769
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 52.402
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 145.081
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 91.081
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 182.301
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 143.042
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.692
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 102.166
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 197.602
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 194.365
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 147.854
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 60.314
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 198.094
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 142.14
         }
       ]
     },
     {
       "rank": 3,
-      "score": 1.19434,
+      "score": 1.194457,
       "design": {
         "phi6": -43.969,
         "lAB": 89.9879,
@@ -421,7 +421,7 @@
         -31.2997
       ],
       "metrics": {
-        "objective": 1.19434,
+        "objective": 1.194457,
         "rmsError_mm": 11.4346,
         "paramRms_mm": 16.3162,
         "maxError_mm": 23.0981,
@@ -460,268 +460,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 89.988
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 128.432
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 115.947
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 93.821
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 200
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 131.986
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 118.36
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 61.404
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 146.811
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 101.126
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 164.347
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 162.026
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 200
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 104.28
         }
       ]
     },
     {
       "rank": 4,
-      "score": 1.205507,
-      "design": {
-        "phi6": 27.3187,
-        "lAB": 94.0754,
-        "c3r": 130.5084,
-        "c3a": 25.7554,
-        "lO4B": 89.7209,
-        "d4r": 155.7636,
-        "d4a": -96.2146,
-        "lCE": 200,
-        "lO6E": 72.66,
-        "g6r": 198.1609,
-        "g6a": 10.5088,
-        "lDF": 143.7685,
-        "lGF": 99.0275,
-        "p8r": 172.017,
-        "p8a": -12.1882
-      },
-      "designArray": [
-        27.3187,
-        94.0754,
-        130.5084,
-        25.7554,
-        89.7209,
-        155.7636,
-        -96.2146,
-        200,
-        72.66,
-        198.1609,
-        10.5088,
-        143.7685,
-        99.0275,
-        172.017,
-        -12.1882
-      ],
-      "metrics": {
-        "objective": 1.205507,
-        "rmsError_mm": 11.6629,
-        "paramRms_mm": 15.6445,
-        "maxError_mm": 19.8281,
-        "rmsLedToTarget_mm": 8.2616,
-        "rmsTargetToLed_mm": 14.2755,
-        "width_mm": 244.281,
-        "height_mm": 241.451,
-        "heartMatchPercent": 74.71,
-        "minTransmissionAngle_deg": 44.695,
-        "effectiveTransmissionAngle_deg": 44.695,
-        "singularityMargin": 0.10431,
-        "collisionFrames": 720,
-        "assemblyLayers": 2,
-        "maxPinSpan": 1,
-        "validFrames": 720,
-        "frames": 720,
-        "fullRotation": true,
-        "assemblyJumps": 0,
-        "maxLoopClosureError_mm": 1.5631940186722204e-13,
-        "pathClosure_mm": 8.526512829121202e-14,
-        "peakGravityTorque_Nm": 0.21906
-      },
-      "fixedPivots": {
-        "O2": {
-          "x": 0,
-          "y": 0
-        },
-        "O4": {
-          "x": 120,
-          "y": 0
-        },
-        "O6": {
-          "x": 226.616,
-          "y": 55.073
-        }
-      },
-      "members": [
-        {
-          "link": "L2",
-          "from": "O2",
-          "to": "A",
-          "length_mm": 50
-        },
-        {
-          "link": "L3",
-          "from": "A",
-          "to": "B",
-          "length_mm": 94.075
-        },
-        {
-          "link": "L3",
-          "from": "A",
-          "to": "C",
-          "length_mm": 130.508
-        },
-        {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
-          "length_mm": 61.374
-        },
-        {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
-          "length_mm": 89.721
-        },
-        {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
-          "length_mm": 155.764
-        },
-        {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
-          "length_mm": 187.984
-        },
-        {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
-          "length_mm": 200
-        },
-        {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
-          "length_mm": 72.66
-        },
-        {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
-          "length_mm": 198.161
-        },
-        {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
-          "length_mm": 127.411
-        },
-        {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
-          "length_mm": 143.768
-        },
-        {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
-          "length_mm": 99.028
-        },
-        {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
-          "length_mm": 172.017
-        },
-        {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
-          "length_mm": 78.073
-        }
-      ]
-    },
-    {
-      "rank": 5,
-      "score": 1.207987,
+      "score": 1.207418,
       "design": {
         "phi6": 85.1259,
         "lAB": 93.842,
@@ -757,7 +589,7 @@
         -4.9081
       ],
       "metrics": {
-        "objective": 1.207987,
+        "objective": 1.207418,
         "rmsError_mm": 11.5551,
         "paramRms_mm": 16.4564,
         "maxError_mm": 21.0321,
@@ -796,94 +628,262 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 93.842
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 50.42
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 144.243
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 90.441
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 200
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 155.847
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 105.341
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 195.682
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 197.227
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 147.856
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 86.208
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 199.182
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 113.53
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "score": 1.207491,
+      "design": {
+        "phi6": 27.3187,
+        "lAB": 94.0754,
+        "c3r": 130.5084,
+        "c3a": 25.7554,
+        "lO4B": 89.7209,
+        "d4r": 155.7636,
+        "d4a": -96.2146,
+        "lCE": 200,
+        "lO6E": 72.66,
+        "g6r": 198.1609,
+        "g6a": 10.5088,
+        "lDF": 143.7685,
+        "lGF": 99.0275,
+        "p8r": 172.017,
+        "p8a": -12.1882
+      },
+      "designArray": [
+        27.3187,
+        94.0754,
+        130.5084,
+        25.7554,
+        89.7209,
+        155.7636,
+        -96.2146,
+        200,
+        72.66,
+        198.1609,
+        10.5088,
+        143.7685,
+        99.0275,
+        172.017,
+        -12.1882
+      ],
+      "metrics": {
+        "objective": 1.207491,
+        "rmsError_mm": 11.6629,
+        "paramRms_mm": 15.6445,
+        "maxError_mm": 19.8281,
+        "rmsLedToTarget_mm": 8.2616,
+        "rmsTargetToLed_mm": 14.2755,
+        "width_mm": 244.281,
+        "height_mm": 241.451,
+        "heartMatchPercent": 74.71,
+        "minTransmissionAngle_deg": 44.695,
+        "effectiveTransmissionAngle_deg": 44.695,
+        "singularityMargin": 0.10431,
+        "collisionFrames": 720,
+        "assemblyLayers": 2,
+        "maxPinSpan": 1,
+        "validFrames": 720,
+        "frames": 720,
+        "fullRotation": true,
+        "assemblyJumps": 0,
+        "maxLoopClosureError_mm": 1.5631940186722204e-13,
+        "pathClosure_mm": 8.526512829121202e-14,
+        "peakGravityTorque_Nm": 0.21906
+      },
+      "fixedPivots": {
+        "O2": {
+          "x": 0,
+          "y": 0
+        },
+        "O4": {
+          "x": 120,
+          "y": 0
+        },
+        "O6": {
+          "x": 226.616,
+          "y": 55.073
+        }
+      },
+      "members": [
+        {
+          "link": "crank",
+          "from": "G0",
+          "to": "A",
+          "length_mm": 50
+        },
+        {
+          "link": "d0A",
+          "from": "A",
+          "to": "J0",
+          "length_mm": 94.075
+        },
+        {
+          "link": "d0A",
+          "from": "A",
+          "to": "E0A",
+          "length_mm": 130.508
+        },
+        {
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
+          "length_mm": 61.374
+        },
+        {
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
+          "length_mm": 89.721
+        },
+        {
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
+          "length_mm": 155.764
+        },
+        {
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
+          "length_mm": 187.984
+        },
+        {
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
+          "length_mm": 200
+        },
+        {
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
+          "length_mm": 72.66
+        },
+        {
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
+          "length_mm": 198.161
+        },
+        {
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
+          "length_mm": 127.411
+        },
+        {
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
+          "length_mm": 143.768
+        },
+        {
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
+          "length_mm": 99.028
+        },
+        {
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
+          "length_mm": 172.017
+        },
+        {
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
+          "length_mm": 78.073
         }
       ]
     },
@@ -964,100 +964,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 92.861
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 93.54
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 89.56
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 90.977
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 148.114
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 164.237
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.914
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 85.623
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 191.183
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 106.292
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 164.232
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 94.526
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 199.992
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 112.886
         }
       ]
     },
     {
       "rank": 7,
-      "score": 1.219851,
+      "score": 1.219126,
       "design": {
         "phi6": 88.2848,
         "lAB": 92.8717,
@@ -1093,7 +1093,7 @@
         -23.2759
       ],
       "metrics": {
-        "objective": 1.219851,
+        "objective": 1.219126,
         "rmsError_mm": 11.7722,
         "paramRms_mm": 16.5692,
         "maxError_mm": 21.4592,
@@ -1132,100 +1132,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 92.872
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 54.286
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 147.155
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 90.967
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 200
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 144.027
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.991
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 95.897
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 177.142
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 167.359
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 102.354
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 77.721
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 198.234
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 130.503
         }
       ]
     },
     {
       "rank": 8,
-      "score": 1.245604,
+      "score": 1.2456,
       "design": {
         "phi6": 41.3666,
         "lAB": 97.056,
@@ -1261,7 +1261,7 @@
         -11.3788
       ],
       "metrics": {
-        "objective": 1.245604,
+        "objective": 1.2456,
         "rmsError_mm": 11.7547,
         "paramRms_mm": 15.771,
         "maxError_mm": 19.9807,
@@ -1300,100 +1300,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 97.056
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 126.287
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 73.879
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 86.488
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 155.238
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 167.422
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 187.173
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 78.989
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 198.589
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 121.176
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 146.091
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 104.555
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 180.385
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 80.571
         }
       ]
     },
     {
       "rank": 9,
-      "score": 1.259466,
+      "score": 1.258958,
       "design": {
         "phi6": 91.7012,
         "lAB": 91.4578,
@@ -1429,7 +1429,7 @@
         5.0091
       ],
       "metrics": {
-        "objective": 1.259466,
+        "objective": 1.258958,
         "rmsError_mm": 12.2167,
         "paramRms_mm": 16.7137,
         "maxError_mm": 19.6385,
@@ -1468,100 +1468,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 91.458
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 51.574
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 143.031
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 92.388
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 196.766
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 148.009
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 108.08
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 199.968
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 192.677
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 154.871
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 88.966
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 200
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 111.645
         }
       ]
     },
     {
       "rank": 10,
-      "score": 1.260311,
+      "score": 1.259634,
       "design": {
         "phi6": 85.2533,
         "lAB": 93.0552,
@@ -1597,7 +1597,7 @@
         -2.2303
       ],
       "metrics": {
-        "objective": 1.260311,
+        "objective": 1.259634,
         "rmsError_mm": 12.2044,
         "paramRms_mm": 16.8584,
         "maxError_mm": 19.4006,
@@ -1636,100 +1636,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 93.055
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 54.081
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 146.261
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 90.784
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 200
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 155.776
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 110.964
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 199.565
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 199.094
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 146.623
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 85.179
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 199.712
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 114.645
         }
       ]
     },
     {
       "rank": 11,
-      "score": 1.262279,
+      "score": 1.261797,
       "design": {
         "phi6": 92.1314,
         "lAB": 92.4547,
@@ -1765,7 +1765,7 @@
         5.7035
       ],
       "metrics": {
-        "objective": 1.262279,
+        "objective": 1.261797,
         "rmsError_mm": 12.2297,
         "paramRms_mm": 16.7161,
         "maxError_mm": 19.4233,
@@ -1804,100 +1804,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 92.455
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 50.032
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 142.487
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 91.444
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 192.628
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 141.094
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.861
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 109.439
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 199.294
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 185.827
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 161.278
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 89.65
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 200
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 111.151
         }
       ]
     },
     {
       "rank": 12,
-      "score": 1.264596,
+      "score": 1.264166,
       "design": {
         "phi6": 91.6292,
         "lAB": 91.3802,
@@ -1933,7 +1933,7 @@
         -0.0996
       ],
       "metrics": {
-        "objective": 1.264596,
+        "objective": 1.264166,
         "rmsError_mm": 12.2192,
         "paramRms_mm": 16.727,
         "maxError_mm": 20.5952,
@@ -1972,100 +1972,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 91.38
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 50
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 141.38
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 92.527
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 196.861
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 142.854
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 113.356
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 183.3
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 156.558
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 94.044
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 200
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 105.956
         }
       ]
     },
     {
       "rank": 13,
-      "score": 1.281926,
+      "score": 1.281445,
       "design": {
         "phi6": 94.9077,
         "lAB": 91.4031,
@@ -2101,7 +2101,7 @@
         2.7275
       ],
       "metrics": {
-        "objective": 1.281926,
+        "objective": 1.281445,
         "rmsError_mm": 12.373,
         "paramRms_mm": 16.8236,
         "maxError_mm": 22.3708,
@@ -2140,100 +2140,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 91.403
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 51.075
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 142.478
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 92.753
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 199.933
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 140.906
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 111.518
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 195.501
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 177.408
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 146.704
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 95.462
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 199.414
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 104.159
         }
       ]
     },
     {
       "rank": 14,
-      "score": 1.284926,
+      "score": 1.284482,
       "design": {
         "phi6": 95.2921,
         "lAB": 91.663,
@@ -2269,7 +2269,7 @@
         2.3217
       ],
       "metrics": {
-        "objective": 1.284926,
+        "objective": 1.284482,
         "rmsError_mm": 12.4806,
         "paramRms_mm": 16.8706,
         "maxError_mm": 21.0311,
@@ -2308,93 +2308,93 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 91.663
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 50.033
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 141.691
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 92.184
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 188.617
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 128.36
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.542
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 109.321
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 190.689
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 162.368
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 151.148
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 87.435
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 199.8
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 112.493
         }
       ]
@@ -2476,93 +2476,93 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 87.053
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 110.84
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 69.943
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 96.549
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 143.632
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 152.257
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 187.603
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 102.292
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 102.992
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 166.198
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 85.257
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 181.379
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 102.142
         }
       ]
@@ -2644,100 +2644,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 89.126
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 64.776
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 117.526
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 94.795
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 174.045
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 163.933
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.849
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 82.443
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 192.496
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 115.798
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 170.09
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 92.171
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 183.077
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 92.568
         }
       ]
     },
     {
       "rank": 17,
-      "score": 1.295363,
+      "score": 1.294846,
       "design": {
         "phi6": 96.9209,
         "lAB": 93.1111,
@@ -2773,7 +2773,7 @@
         3.0071
       ],
       "metrics": {
-        "objective": 1.295363,
+        "objective": 1.294846,
         "rmsError_mm": 12.574,
         "paramRms_mm": 16.9591,
         "maxError_mm": 20.5016,
@@ -2812,93 +2812,93 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 93.111
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 50.094
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 143.206
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 90.724
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 196.391
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 132.247
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.862
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 113.334
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 195.094
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 167.158
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 152.031
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 103.626
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 199.907
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 96.577
         }
       ]
@@ -2980,100 +2980,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 92.47
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 63.916
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 82.6
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 91.355
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 146.006
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 148.095
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 161.835
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 77.886
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 170.622
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 96.813
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 174.978
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 81.816
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 196.661
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 121.079
         }
       ]
     },
     {
       "rank": 19,
-      "score": 1.298512,
+      "score": 1.297924,
       "design": {
         "phi6": 95.906,
         "lAB": 91.3211,
@@ -3109,7 +3109,7 @@
         2.2364
       ],
       "metrics": {
-        "objective": 1.298512,
+        "objective": 1.297924,
         "rmsError_mm": 12.6091,
         "paramRms_mm": 16.9595,
         "maxError_mm": 20.8945,
@@ -3148,100 +3148,100 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 91.321
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 53.278
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 144.598
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 92.526
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 199.634
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 136.558
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 199.513
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 117.447
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 199.961
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 175.887
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 153.179
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 103.357
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 200
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 96.806
         }
       ]
     },
     {
       "rank": 20,
-      "score": 1.298807,
+      "score": 1.298726,
       "design": {
         "phi6": 59.4129,
         "lAB": 94.8774,
@@ -3277,7 +3277,7 @@
         -9.6466
       ],
       "metrics": {
-        "objective": 1.298807,
+        "objective": 1.298726,
         "rmsError_mm": 12.4236,
         "paramRms_mm": 16.2644,
         "maxError_mm": 20.0653,
@@ -3316,96 +3316,98 @@
       },
       "members": [
         {
-          "link": "L2",
-          "from": "O2",
+          "link": "crank",
+          "from": "G0",
           "to": "A",
           "length_mm": 50
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "B",
+          "to": "J0",
           "length_mm": 94.877
         },
         {
-          "link": "L3",
+          "link": "d0A",
           "from": "A",
-          "to": "C",
+          "to": "E0A",
           "length_mm": 131.613
         },
         {
-          "link": "L3",
-          "from": "B",
-          "to": "C",
+          "link": "d0A",
+          "from": "J0",
+          "to": "E0A",
           "length_mm": 97.188
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "B",
+          "link": "d0B",
+          "from": "G1",
+          "to": "J0",
           "length_mm": 89.053
         },
         {
-          "link": "L4",
-          "from": "O4",
-          "to": "D",
+          "link": "d0B",
+          "from": "G1",
+          "to": "E0B",
           "length_mm": 141.033
         },
         {
-          "link": "L4",
-          "from": "B",
-          "to": "D",
+          "link": "d0B",
+          "from": "J0",
+          "to": "E0B",
           "length_mm": 136.652
         },
         {
-          "link": "L5",
-          "from": "C",
-          "to": "E",
+          "link": "d1A",
+          "from": "E0A",
+          "to": "J1",
           "length_mm": 197.208
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "E",
+          "link": "d1B",
+          "from": "G2",
+          "to": "J1",
           "length_mm": 115.936
         },
         {
-          "link": "L6",
-          "from": "O6",
-          "to": "G",
+          "link": "d1B",
+          "from": "G2",
+          "to": "E1B",
           "length_mm": 200
         },
         {
-          "link": "L6",
-          "from": "E",
-          "to": "G",
+          "link": "d1B",
+          "from": "J1",
+          "to": "E1B",
           "length_mm": 116.872
         },
         {
-          "link": "L7",
-          "from": "D",
-          "to": "F",
+          "link": "d2A",
+          "from": "E0B",
+          "to": "J2",
           "length_mm": 171.444
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "F",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "J2",
           "length_mm": 103.063
         },
         {
-          "link": "L8",
-          "from": "G",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "E1B",
+          "to": "E2B",
           "length_mm": 178.472
         },
         {
-          "link": "L8",
-          "from": "F",
-          "to": "P_LED",
+          "link": "d2B",
+          "from": "J2",
+          "to": "E2B",
           "length_mm": 78.782
         }
       ]
     }
-  ]
+  ],
+  "metricsRefreshedAt": "2026-08-15T11:41:11.334Z",
+  "dyads": 3
 }

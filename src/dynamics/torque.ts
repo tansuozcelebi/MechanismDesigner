@@ -1,11 +1,13 @@
 import { CONFIG } from '../mechanism/config';
 import type { Geometry } from '../mechanism/mechanism';
-import type { LinkId, Pose } from '../mechanism/types';
+import type { Pose } from '../mechanism/types';
 import { solvePose } from '../kinematics/forwardSolver';
 import { poseMassProperties } from './massProperties';
 import { potentialEnergy } from './gravity';
 import { mmToM } from '../utils/units';
 import { wrapPi } from '../utils/math';
+import { branchSeed } from './branchSeed';
+import { movingLinks } from './massProperties';
 
 /**
  * Motor torque estimate via the Lagrange equation for a single-DOF system
@@ -38,8 +40,6 @@ export type TorqueBreakdown = {
   ok: boolean;
 };
 
-const MOVING: Exclude<LinkId, 'ground'>[] = ['L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8'];
-
 /** Generalised inertia M(theta) in kg.m^2. */
 export function reducedInertia(
   geo: Geometry,
@@ -47,10 +47,11 @@ export function reducedInertia(
   dTheta = 1e-3,
   lineDensity: number = CONFIG.lineDensity,
 ): number {
-  const seed = { B: pose.joints.B, E: pose.joints.E, F: pose.joints.F };
+  const seed = branchSeed(pose);
   const plus = solvePose(geo, pose.theta + dTheta, seed, { computeSigma: false });
   const minus = solvePose(geo, pose.theta - dTheta, seed, { computeSigma: false });
   if (!plus.ok || !minus.ok) return Number.NaN;
+  const MOVING = movingLinks(geo);
 
   const pp = poseMassProperties(geo, plus, lineDensity);
   const pm = poseMassProperties(geo, minus, lineDensity);
@@ -82,7 +83,7 @@ export function motorTorque(
   const lineDensity = options.lineDensity ?? CONFIG.lineDensity;
   const dTheta = 2e-3;
 
-  const seed = { B: pose.joints.B, E: pose.joints.E, F: pose.joints.F };
+  const seed = branchSeed(pose);
   const plus = solvePose(geo, pose.theta + dTheta, seed, { computeSigma: false });
   const minus = solvePose(geo, pose.theta - dTheta, seed, { computeSigma: false });
 

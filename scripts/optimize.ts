@@ -9,10 +9,10 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { optimize } from '../src/synthesis/optimizer';
 import { evaluateDesign } from '../src/synthesis/objective';
-import { arrayToDesign, buildGeometry } from '../src/mechanism/mechanism';
-import { DESIGN_KEYS } from '../src/mechanism/types';
+import { buildGeometry } from '../src/mechanism/mechanism';
+import { defaultSpec, groundJointId, paramLayout } from '../src/mechanism/spec';
 import { CONFIG } from '../src/mechanism/config';
-import { TOPOLOGY } from '../src/mechanism/topology';
+import { topologyOf } from '../src/mechanism/topology';
 
 const argv = process.argv.slice(2);
 const arg = (name: string, dflt: number): number => {
@@ -30,9 +30,16 @@ const population = arg('pop', CONFIG.optimizer.dePopulation);
 const generations = arg('gen', CONFIG.optimizer.deGenerations);
 const localIterations = arg('local', CONFIG.optimizer.localIterations);
 const outPath = resolve(process.cwd(), argStr('out', 'src/synthesis/optimizedResult.json'));
+const DYADS = arg('dyads', 3);
+const SPEC = defaultSpec(DYADS);
+const LAYOUT = paramLayout(SPEC);
+const TOPOLOGY = topologyOf(SPEC);
 
 console.log('=== HEART LINKAGE SYNTHESIS — offline optimisation ===');
-console.log(`Mobility = ${TOPOLOGY.mobility}  |  independent loops = ${TOPOLOGY.loopCount}`);
+console.log(
+  `dyads=${DYADS} links=${TOPOLOGY.links.length} joints=${TOPOLOGY.joints.length} ` +
+    `Mobility=${TOPOLOGY.mobility} loops=${TOPOLOGY.loopCount} params=${LAYOUT.length}`,
+);
 console.log(
   `runs=${runs} seed=${baseSeed} pop=${population} gen=${generations} local=${localIterations}`,
 );
@@ -44,6 +51,7 @@ for (let r = 0; r < runs; r++) {
   const seed = baseSeed + r * 7919;
   let last = '';
   const res = optimize({
+    spec: SPEC,
     seed,
     population,
     generations,
@@ -83,11 +91,11 @@ for (const c of pool) {
 console.log(`\n=== ${distinct.length} distinct mechanisms retained ===\n`);
 
 const solutions = distinct.map((c, idx) => {
-  const m = evaluateDesign(c.x, { level: 'fine', computeSigma: true, computeGravity: true });
-  const geo = buildGeometry(arrayToDesign(c.x));
+  const m = evaluateDesign(c.x, { level: 'fine', spec: SPEC, computeSigma: true, computeGravity: true });
+  const geo = buildGeometry(SPEC, c.x);
   const design: Record<string, number> = {};
-  DESIGN_KEYS.forEach((k, i) => {
-    design[k] = +c.x[i].toFixed(4);
+  LAYOUT.forEach((p, i) => {
+    design[p.label] = +c.x[i].toFixed(4);
   });
 
   if (idx < 8) {
@@ -126,11 +134,12 @@ const solutions = distinct.map((c, idx) => {
       pathClosure_mm: m.pathClosure,
       peakGravityTorque_Nm: +m.peakGravityTorque.toFixed(5),
     },
-    fixedPivots: {
-      O2: { x: +geo.O2.x.toFixed(3), y: +geo.O2.y.toFixed(3) },
-      O4: { x: +geo.O4.x.toFixed(3), y: +geo.O4.y.toFixed(3) },
-      O6: { x: +geo.O6.x.toFixed(3), y: +geo.O6.y.toFixed(3) },
-    },
+    fixedPivots: Object.fromEntries(
+      geo.ground.map((p, i) => [
+        SPEC.labels?.[groundJointId(i)] ?? groundJointId(i),
+        { x: +p.x.toFixed(3), y: +p.y.toFixed(3) },
+      ]),
+    ),
     members: geo.members.map((mm) => ({
       link: mm.linkId,
       from: mm.from,
@@ -152,6 +161,7 @@ const payload = {
     samplesSchedule: [CONFIG.samplesCoarse, CONFIG.samplesMedium, CONFIG.samplesFine],
     weights: CONFIG.weights,
   },
+  dyads: DYADS,
   topology: {
     links: TOPOLOGY.links.length,
     joints: TOPOLOGY.joints.length,
