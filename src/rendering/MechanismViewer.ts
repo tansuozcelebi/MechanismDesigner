@@ -62,7 +62,19 @@ export class MechanismViewer {
     minMemberDistance: Infinity,
   };
 
-  onState: ((s: ViewerState) => void) | null = null;
+  /**
+   * Latest solved state, replaced (new object identity) on every solve.
+   *
+   * Deliberately a PULL interface rather than a callback.  Pushing this into
+   * React from inside solvePose meant setState ran synchronously inside the
+   * effect that drove the motor angle, so React counted every animation frame
+   * as a nested update and eventually warned "Maximum update depth exceeded".
+   * The render loop reads this once per frame instead, which is an ordinary
+   * update outside the commit phase — and it also halves the renders per frame.
+   */
+  get viewerState(): ViewerState {
+    return this.state;
+  }
 
   constructor(canvas: HTMLCanvasElement, design: DesignVector) {
     this.scene = new Scene2D(canvas);
@@ -135,7 +147,6 @@ export class MechanismViewer {
         failureReason: result.reason,
       };
       this.branchState = null; // re-seed from the explicit assembly next time
-      this.emit();
       return;
     }
 
@@ -164,11 +175,6 @@ export class MechanismViewer {
       collisionCount: coll.count,
       minMemberDistance: coll.minDistance,
     };
-    this.emit();
-  }
-
-  private emit(): void {
-    this.onState?.(this.state);
   }
 
   /* ----------------------------- display ----------------------------- */

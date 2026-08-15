@@ -58,8 +58,14 @@ export class Scene2D {
   /* ----------------------------- view ---------------------------------- */
 
   resize(width: number, height: number): void {
-    this.width = Math.max(1, width);
-    this.height = Math.max(1, height);
+    const w = Math.max(1, width);
+    const h = Math.max(1, height);
+    // No-op on an unchanged size. ResizeObserver fires on every observed layout
+    // pass, and reprojecting each time would notify listeners (and re-render
+    // React) for a view that did not move.
+    if (w === this.width && h === this.height) return;
+    this.width = w;
+    this.height = h;
     this.renderer.setSize(this.width, this.height, false);
     this.updateCamera();
   }
