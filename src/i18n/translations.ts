@@ -301,6 +301,36 @@ export const en = {
   'hint.interfering': 'INTERFERING NOW',
   'hint.clickToEdit': 'click to select and edit',
   'hint.derived': 'position is derived from the mechanism',
+
+  /* ---- navigation ---- */
+  'nav.designer': 'Designer',
+  'nav.about': 'About',
+  'nav.theory': 'Mechanism Theory',
+
+  /* ---- about page ---- */
+  'about.tagline': 'MECHANISM DESIGN SOFTWARE',
+  'about.lede':
+    'KREAMET synthesises single-motor, cam-free, planar closed-loop linkages that trace a chosen curve, and then proves the result: full rotatability, loop closure, transmission angle, singularity margin and buildability are all measured rather than assumed.',
+  'about.project': 'The project',
+  'about.projectBody':
+    'The starting problem was a 1-DOF eight-bar whose output LED traces a 250 × 250 mm heart from a single motor, with no cams and every printed member between 50 and 200 mm. The app grew from that into a general workbench: the mechanism family runs from 4 to 14 bars, the target trajectory is drawn by hand or imported, and every constraint is editable while the solver runs.',
+  'about.factsNote':
+    'Every figure above is produced by the code in this repository — re-evaluated with the same solver the optimiser minimised. None of them is an estimate.',
+  'about.methods': 'How it works',
+  'about.stack': 'Built with',
+  'about.verification': 'How it is verified',
+  'about.toTheory': 'Read the mechanism theory reference',
+  'about.toDesigner': 'Open the designer',
+  'about.footer':
+    'KREAMET — mechanism design software. Engineering notation (mm, N·m, θ, μ, σ) is kept identical in both languages on purpose.',
+
+  /* ---- theory page ---- */
+  'theory.contents': 'Contents',
+  'theory.filter': 'Filter sections…',
+  'theory.meta': '{sections} sections · {lines} lines',
+  'theory.noMatch': 'No section matches.',
+  'theory.loading': 'Loading…',
+  'theory.loadFailed': 'The reference document could not be loaded.',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -593,6 +623,36 @@ export const tr: Record<TranslationKey, string> = {
   'hint.interfering': 'ŞU AN GİRİŞİM VAR',
   'hint.clickToEdit': 'seçmek ve düzenlemek için tıklayın',
   'hint.derived': 'konum mekanizmadan türetilir',
+
+  /* ---- gezinme ---- */
+  'nav.designer': 'Tasarım',
+  'nav.about': 'Hakkında',
+  'nav.theory': 'Mekanizma Tekniği',
+
+  /* ---- hakkında sayfası ---- */
+  'about.tagline': 'MEKANİZMA TASARIM YAZILIMI',
+  'about.lede':
+    'KREAMET, tek motorlu, kamsız, düzlemsel ve kapalı çevrimli mekanizmaları verilen bir eğriyi çizecek şekilde sentezler ve sonucu kanıtlar: tam tur dönebilirlik, çevrim kapanması, iletim açısı, tekillik payı ve montaj edilebilirlik varsayılmaz, ölçülür.',
+  'about.project': 'Proje',
+  'about.projectBody':
+    'Başlangıç problemi şuydu: tek motorla, kam kullanmadan, her basılan elemanı 50–200 mm arasında olan 1 serbestlik dereceli sekiz kollu bir mekanizma, çıkış LED’iyle 250 × 250 mm’lik bir kalp çizsin. Uygulama buradan genel bir tezgâha dönüştü: mekanizma ailesi 4 ile 14 kol arasında, hedef yörünge elle çizilebilir veya içe aktarılabilir, kısıtların tamamı çözücü çalışırken değiştirilebilir.',
+  'about.factsNote':
+    'Yukarıdaki her değer bu depodaki kodun ürettiği sonuçtur — optimizasyonun küçülttüğü çözücüyle yeniden değerlendirilmiştir. Hiçbiri tahmin değildir.',
+  'about.methods': 'Nasıl çalışıyor',
+  'about.stack': 'Kullanılan teknolojiler',
+  'about.verification': 'Nasıl doğrulanıyor',
+  'about.toTheory': 'Mekanizma tekniği referansını oku',
+  'about.toDesigner': 'Tasarım ekranını aç',
+  'about.footer':
+    'KREAMET — mekanizma tasarım yazılımı. Mühendislik gösterimi (mm, N·m, θ, μ, σ) iki dilde de bilerek aynı bırakılmıştır.',
+
+  /* ---- teknik referans sayfası ---- */
+  'theory.contents': 'İçindekiler',
+  'theory.filter': 'Bölüm ara…',
+  'theory.meta': '{sections} bölüm · {lines} satır',
+  'theory.noMatch': 'Eşleşen bölüm yok.',
+  'theory.loading': 'Yükleniyor…',
+  'theory.loadFailed': 'Referans belgesi yüklenemedi.',
 };
 
 export const LANGUAGES = [

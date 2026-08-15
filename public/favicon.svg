@@ -1,5 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#0e1116"/>
-  <path d="M16 27C10 22.5 4 18.6 4 13.2 4 9.8 6.6 7 9.9 7c2.3 0 4.4 1.3 5.4 3.3h1.4C17.7 8.3 19.8 7 22.1 7 25.4 7 28 9.8 28 13.2 28 18.6 22 22.5 16 27z" fill="none" stroke="#ff4d6d" stroke-width="2"/>
-  <circle cx="9" cy="24" r="2.6" fill="#f2a33c"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118 100">
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#e6ecf3"/><stop offset="1" stop-color="#4d5865"/>
+    </linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#3aa0ff"/><stop offset="1" stop-color="#0b47a0"/>
+    </linearGradient>
+  </defs>
+  <rect width="118" height="100" fill="#0e1116"/>
+  <g fill="url(#s)">
+    <circle cx="30" cy="50" r="22"/>
+    <rect x="26.4" y="22.5" width="7.2" height="9" rx="1.2"/>
+    <rect x="26.4" y="68.5" width="7.2" height="9" rx="1.2"/>
+    <rect x="2.5" y="46.4" width="9" height="7.2" rx="1.2"/>
+    <rect x="48.5" y="46.4" width="9" height="7.2" rx="1.2"/>
+  </g>
+  <circle cx="30" cy="50" r="9" fill="#0e1116"/>
+  <rect x="47" y="4" width="15" height="90" rx="1.5" fill="#20262e"/>
+  <path d="M70 46 L38 88 L48 94 L78 54 Z" fill="url(#s)"/>
+  <path d="M70 46 L104 4 L118 4 L82 50 Z" fill="url(#b)"/>
+  <path d="M74 44 L112 94 L98 96 L66 56 Z" fill="url(#b)"/>
+  <circle cx="72" cy="49" r="13" fill="#8f9cab"/>
+  <circle cx="72" cy="49" r="9.5" fill="#0f4fa8"/>
+  <circle cx="72" cy="49" r="5" fill="#e8eef7"/>
 </svg>
