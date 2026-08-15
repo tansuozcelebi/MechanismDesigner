@@ -6,8 +6,9 @@ import {
   VERIFICATION,
   type Bilingual,
 } from '../content/about';
-import { LogoFull } from '../ui/Logo';
+import { LOGO_SRC } from '../ui/SiteNav';
 import { hrefFor } from '../app/router';
+import { APP_NAME } from '../i18n/translations';
 import { useI18n, useT } from '../i18n';
 
 /** Pick the active language out of a bilingual string. */
@@ -24,7 +25,8 @@ export default function AboutPage() {
     <div className="page">
       <div className="page-inner">
         <header className="hero">
-          <LogoFull size={54} tagline={t('about.tagline')} />
+          <img className="herologo" src={LOGO_SRC} alt={APP_NAME} />
+          <div className="tagline">{t('about.tagline')}</div>
           <p className="lede">{t('about.lede')}</p>
         </header>
 

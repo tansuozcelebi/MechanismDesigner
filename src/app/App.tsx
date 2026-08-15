@@ -52,6 +52,7 @@ import { Section } from '../ui/primitives';
 import { LanguageSwitch } from '../ui/LanguageSwitch';
 import { SiteNav } from '../ui/SiteNav';
 import { useT } from '../i18n';
+import { APP_NAME } from '../i18n/translations';
 import '../ui/styles.css';
 
 /** Seed used when a new mechanism size needs a feasible starting design. */
@@ -504,7 +505,8 @@ export default function App() {
         <h1>
           <img className="logo" src="/kreamet-logo.svg" alt={APP_NAME} />
         </h1>
-        <SiteNav />
+        {/* The <h1> above already carries the lockup, so the nav omits it. */}
+        <SiteNav brand={false} />
         <span className="sub">
           {t('app.subtitle', {
             n: topo.links.length,

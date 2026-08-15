@@ -35,7 +35,7 @@ export default function Shell() {
   return (
     <div className="site">
       <header className="siteheader">
-        <SiteNav compact />
+        <SiteNav />
         <span className="spacer" />
         <LanguageSwitch />
       </header>

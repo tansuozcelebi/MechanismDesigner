@@ -155,6 +155,34 @@ describe('theory reference', () => {
   });
 });
 
+describe('brand asset', () => {
+  const svg = read('../public/kreamet-logo.svg');
+
+  it('is a self-contained SVG with an accessible name', () => {
+    expect(svg).toMatch(/<svg[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+    expect(svg).toContain('aria-label="KREAMET"');
+    // A logo that reaches out for an external asset breaks the moment it is
+    // opened from a file path or a different origin.
+    expect(svg).not.toMatch(/<image|xlink:href|url\(http/);
+  });
+
+  it('pins the wordmark width so it does not depend on the viewer’s fonts', () => {
+    expect(svg).toMatch(/textLength="\d+"/);
+    expect(svg).toContain('lengthAdjust=');
+  });
+
+  it('the viewBox is wide enough for the wordmark', () => {
+    // The regression this guards: the box was 252 wide while the wordmark ran
+    // to x = 270, so the final "T" was clipped at every size it was drawn.
+    const box = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
+    expect(box).not.toBeNull();
+    const width = Number(box![1]);
+    const x = Number(/<text x="([\d.]+)"/.exec(svg)![1]);
+    const len = Number(/textLength="([\d.]+)"/.exec(svg)![1]);
+    expect(x + len).toBeLessThanOrEqual(width);
+  });
+});
+
 describe('about content', () => {
   it('carries a developer profile with working links', () => {
     expect(DEVELOPER.name.length).toBeGreaterThan(0);
