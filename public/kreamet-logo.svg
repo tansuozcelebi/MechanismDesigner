@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 252 58" role="img" aria-label="KREAMET">
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6ecf4" />
+      <stop offset="0.45" stop-color="#a8b4c4" />
+      <stop offset="0.55" stop-color="#68748a" />
+      <stop offset="1" stop-color="#cdd7e4" />
+    </linearGradient>
+    <linearGradient id="graphite" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8b98ab" />
+      <stop offset="0.3" stop-color="#4a5462" />
+      <stop offset="1" stop-color="#232a34" />
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#5ab4ff" />
+      <stop offset="0.5" stop-color="#1e7ff0" />
+      <stop offset="1" stop-color="#0a4bb0" />
+    </linearGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dae3ef" />
+      <stop offset="0.55" stop-color="#8e9cb0" />
+      <stop offset="1" stop-color="#5c6a7e" />
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#1e7ff0" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#1e7ff0" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <ellipse cx="52" cy="30" rx="46" ry="26" fill="url(#glow)" />
+
+  <!-- gear -->
+  <g>
+    <circle cx="24" cy="31" r="15" fill="none" stroke="url(#steel)" stroke-width="6"
+            stroke-dasharray="4.6 3.25" />
+    <circle cx="24" cy="31" r="12" fill="#11161d" stroke="url(#steel)" stroke-width="3.4" />
+    <circle cx="24" cy="31" r="7.5" fill="#0c1017" stroke="#1e7ff0" stroke-width="2.2" />
+  </g>
+
+  <!-- blue K -->
+  <path d="M44 33.5 L69 6 h13 L57 33.5 Z" fill="url(#blue)" />
+  <path d="M44 30 L69 56 h13 L57 30 Z" fill="url(#blue)" />
+  <path d="M44 6 h11 v50 H44 Z" fill="url(#blue)" opacity="0.9" />
+
+  <!-- graphite upright over the K stem -->
+  <path d="M31 4 h13 v52 H31 Z" fill="url(#graphite)" />
+  <path d="M31 4 h4 v52 h-4 Z" fill="#79879a" opacity="0.55" />
+
+  <!-- coupler rod from gear to bearing -->
+  <path d="M14 50 L45 25 l4 5 L18 55 Z" fill="url(#steel)" />
+
+  <!-- bearing -->
+  <circle cx="52" cy="26" r="10" fill="url(#steel)" />
+  <circle cx="52" cy="26" r="7" fill="#0d4fb4" />
+  <circle cx="52" cy="26" r="4.6" fill="url(#steel)" />
+
+  <!-- ground line -->
+  <rect x="12" y="56" width="76" height="1.6" fill="#1e7ff0" opacity="0.7" />
+
+  <!-- wordmark -->
+  <text x="98" y="41" font-family="Segoe UI, system-ui, -apple-system, Roboto, sans-serif"
+        font-size="30" font-weight="700" letter-spacing="1.6">
+    <tspan fill="url(#word)">KREA</tspan><tspan fill="url(#blue)">MET</tspan>
+  </text>
+</svg>

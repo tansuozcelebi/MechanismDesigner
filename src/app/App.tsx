@@ -501,7 +501,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>{APP_NAME}</h1>
+        <h1>
+          <img className="logo" src="/kreamet-logo.svg" alt={APP_NAME} />
+        </h1>
         <span className="sub">
           {t('app.subtitle', {
             n: topo.links.length,
@@ -676,7 +678,7 @@ export default function App() {
       <div className="timeline">
         <div className="row">
           <button
-            className="icon"
+            className={`icon ${playing ? 'playing' : 'paused'}`}
             onClick={() => setPlaying((p) => !p)}
             title={t(playing ? 'timeline.pause' : 'timeline.play')}
             aria-label={t(playing ? 'timeline.pause' : 'timeline.play')}

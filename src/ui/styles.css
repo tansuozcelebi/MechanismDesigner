@@ -38,7 +38,7 @@ body {
 
 .app {
   display: grid;
-  grid-template-rows: 42px 1fr 92px;
+  grid-template-rows: 50px 1fr 92px;
   grid-template-columns: 336px 1fr 300px;
   grid-template-areas:
     'header header header'
@@ -73,6 +73,16 @@ body {
   font-weight: 650;
   margin: 0;
   color: var(--text);
+  display: flex;
+  align-items: center;
+}
+
+/* The mark carries the product name, so it replaces the h1 text outright. */
+.header .logo {
+  display: block;
+  height: 34px;
+  width: auto;
+  flex: none;
 }
 
 .header .sub {
@@ -223,6 +233,30 @@ button.icon {
   min-width: 38px;
   font-size: 13px;
   padding: 6px 8px;
+}
+
+button.playing {
+  background: var(--bad);
+  color: #fff;
+  border-color: var(--bad);
+  font-weight: 650;
+}
+
+button.playing:hover:not(:disabled) {
+  background: #f26363;
+  border-color: #f26363;
+}
+
+button.paused {
+  background: var(--good);
+  color: #0e1116;
+  border-color: var(--good);
+  font-weight: 650;
+}
+
+button.paused:hover:not(:disabled) {
+  background: #5dd9b4;
+  border-color: #5dd9b4;
 }
 
 label.check {
