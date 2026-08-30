@@ -2,14 +2,118 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="KREAMET — single-motor planar linkage synthesis and simulation, with an editable target trajectory, variable link count and a full mechanism-theory reference." />
-    <meta name="theme-color" content="#0e1116" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
     <title>KREAMET — Mekanizma Tasarım Yazılımı / Mechanism Design Software</title>
+    <meta
+      name="description"
+      content="KREAMET synthesises single-motor, cam-free, planar closed-loop linkages that trace a given path — 4 to 14 bars, an editable target curve, in-browser optimisation and measured verification. Bilingual (TR/EN), with a full mechanism-theory reference."
+    />
+    <meta
+      name="keywords"
+      content="mechanism design, linkage synthesis, four-bar linkage, coupler curve, transmission angle, Assur dyad, kinematic analysis, mekanizma tasarımı, kol mekanizması, mekanizma tekniği"
+    />
+    <meta name="author" content="Tansu Özçelebi" />
+    <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large" />
+    <meta name="theme-color" content="#0e1116" />
+    <meta name="color-scheme" content="dark" />
+
+    <!--
+      The app is a single page with hash routing, so `#/about` and `#/theory`
+      are not separately indexable: to a crawler they are all this one URL.
+      That is why `npm run build` also emits static copies of every page at real
+      paths (see scripts/seo.ts) — those carry the content and the per-page
+      canonicals. This shell canonicalises to the site root and points at them.
+    -->
+    <link rel="canonical" href="https://tansuozcelebi.github.io/MechanismDesigner/" />
+    <link
+      rel="alternate"
+      hreflang="tr"
+      href="https://tansuozcelebi.github.io/MechanismDesigner/tr/"
+    />
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://tansuozcelebi.github.io/MechanismDesigner/en/"
+    />
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://tansuozcelebi.github.io/MechanismDesigner/en/"
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="KREAMET" />
+    <meta
+      property="og:title"
+      content="KREAMET — Mechanism Design Software / Mekanizma Tasarım Yazılımı"
+    />
+    <meta
+      property="og:description"
+      content="Single-motor planar linkage synthesis in the browser: 4–14 bars, an editable target trajectory, and every result measured — full rotation, transmission angle, singularity margin, buildability."
+    />
+    <meta property="og:url" content="https://tansuozcelebi.github.io/MechanismDesigner/" />
+    <meta
+      property="og:image"
+      content="https://tansuozcelebi.github.io/MechanismDesigner/kreamet-logo.svg"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="KREAMET — Mechanism Design Software" />
+    <meta
+      name="twitter:description"
+      content="Single-motor planar linkage synthesis in the browser, with a full mechanism-theory reference."
+    />
+    <meta
+      name="twitter:image"
+      content="https://tansuozcelebi.github.io/MechanismDesigner/kreamet-logo.svg"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "KREAMET",
+        "alternateName": "KREAMET Mekanizma Tasarım Yazılımı",
+        "applicationCategory": "EngineeringApplication",
+        "operatingSystem": "Web browser",
+        "url": "https://tansuozcelebi.github.io/MechanismDesigner/",
+        "description": "Synthesises single-motor, cam-free, planar closed-loop linkages that trace a given path, and verifies the result by measurement.",
+        "inLanguage": ["tr", "en"],
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "codeRepository": "https://github.com/tansuozcelebi/MechanismDesigner",
+        "author": {
+          "@type": "Person",
+          "name": "Tansu Özçelebi",
+          "url": "https://github.com/tansuozcelebi"
+        }
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        Shown only until the bundle boots, and to any client that does not run
+        JavaScript at all. It is not an SEO trick: it says what the page is and
+        links to the static copies that actually carry the content.
+      -->
+      <noscript>
+        <h1>KREAMET — Mekanizma Tasarım Yazılımı / Mechanism Design Software</h1>
+        <p>
+          The interactive designer needs JavaScript. The full content is available as
+          static pages:
+        </p>
+        <ul>
+          <li><a href="/en/">KREAMET — Mechanism Design Software</a></li>
+          <li><a href="/en/theory/">Mechanism Theory — A Working Reference</a></li>
+          <li><a href="/en/about/">About the project</a></li>
+          <li><a href="/tr/">KREAMET — Mekanizma Tasarım Yazılımı</a></li>
+          <li><a href="/tr/mekanizma-teknigi/">Mekanizma Tekniği — Kapsamlı Referans</a></li>
+          <li><a href="/tr/hakkinda/">Proje hakkında</a></li>
+        </ul>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

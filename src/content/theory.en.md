@@ -2677,50 +2677,41 @@ exported.
 
 # 42. Frequently asked questions
 
-**"It works in simulation but jams in reality."** In order of likelihood: the
-transmission angle is too small (simulation is frictionless; reality self-locks
-when `tan(μ_eff) < f`); the assembly is overconstrained (out-of-plane
-misalignment binds it — an S joint or added clearance fixes it); two bodies share
-a layer and cross; or long pins are bending under load.
+## 42.1 “It works in simulation but jams in reality.”
 
-**"The optimiser finds a good curve but the mechanism looks strange."** The
-objective is not measuring something you care about. Check link ratios,
-interference, transmission-angle weight and the size term. "Looks strange"
-usually means an unmeasured constraint is being violated.
+In order of likelihood: the transmission angle is too small (simulation is frictionless; reality self-locks when `tan(μ_eff) < f`); the assembly is overconstrained (out-of-plane misalignment binds it — an S joint or added clearance fixes it); two bodies share a layer and cross; or long pins are bending under load.
 
-**"The optimisation stalls."** The seed population may be invalid (use
-constructive sampling); the penalty band may be flat (add the violation
-magnitude); repair may be over-applied (rescue only); or a reference value may
-be unattainable.
+## 42.2 “The optimiser finds a good curve but the mechanism looks strange.”
 
-**"How many links should I use?"** More links mean richer curves but more
-backlash, more friction, more layers, higher cost and a bigger search space. Use
-the fewest that reach acceptable error. Measured here: six bars gave `55 mm`
-RMS for the heart while eight gave `11.4 mm`, so eight was necessary; going to
-ten moves the search from 15 to 19 dimensions with no guaranteed gain.
+The objective is not measuring something you care about. Check link ratios, interference, transmission-angle weight and the size term. "Looks strange" usually means an unmeasured constraint is being violated.
 
-**"The path does not close."** Check the warm-up lap, the assembly-jump counter,
-and whether any frame failed to solve. In closed form with correct branch
-tracking this should sit at `1e−14`.
+## 42.3 “The optimisation stalls.”
 
-**"My motor is not enough."** Split the torque into its three Lagrange terms. If
-gravity dominates, use a counterweight or spring balance. If `M·θ̈` dominates,
-consider a flywheel or a gentler speed profile. If `½M'θ̇²` dominates, the
-reduced inertia varies too much — fix the geometry or lower the speed; a
-flywheel does **not** reduce this term.
+The seed population may be invalid (use constructive sampling); the penalty band may be flat (add the violation magnitude); repair may be over-applied (rescue only); or a reference value may be unattainable.
 
-**"Which error measure?"** Point-to-point if timing matters; symmetric Chamfer
-for shape; Hausdorff for reporting the worst deviation; Fourier for fast
-pre-screening. Never one-sided Chamfer.
+## 42.4 “How many links should I use?”
 
-**"Grashof is satisfied but my crank will not rotate."** Grashof says *a* link
-rotates fully; which one depends on the inversion. If the shortest link is not
-adjacent to the frame, the fully rotating link may not be your input.
+More links mean richer curves but more backlash, more friction, more layers, higher cost and a bigger search space. Use the fewest that reach acceptable error. Measured here: six bars gave `55 mm` RMS for the heart while eight gave `11.4 mm`, so eight was necessary; going to ten moves the search from 15 to 19 dimensions with no guaranteed gain.
 
-**"Several mechanisms trace the same curve — which one?"** They are probably
-cognates. Choose on pivot locations, length band, transmission angle,
-interference and tolerance sensitivity. Kinematic equivalence is not practical
-equivalence.
+## 42.5 “The path does not close.”
+
+Check the warm-up lap, the assembly-jump counter, and whether any frame failed to solve. In closed form with correct branch tracking this should sit at `1e−14`.
+
+## 42.6 “My motor is not enough.”
+
+Split the torque into its three Lagrange terms. If gravity dominates, use a counterweight or spring balance. If `M·θ̈` dominates, consider a flywheel or a gentler speed profile. If `½M'θ̇²` dominates, the reduced inertia varies too much — fix the geometry or lower the speed; a flywheel does **not** reduce this term.
+
+## 42.7 “Which error measure?”
+
+Point-to-point if timing matters; symmetric Chamfer for shape; Hausdorff for reporting the worst deviation; Fourier for fast pre-screening. Never one-sided Chamfer.
+
+## 42.8 “Grashof is satisfied but my crank will not rotate.”
+
+Grashof says *a* link rotates fully; which one depends on the inversion. If the shortest link is not adjacent to the frame, the fully rotating link may not be your input.
+
+## 42.9 “Several mechanisms trace the same curve — which one?”
+
+They are probably cognates. Choose on pivot locations, length band, transmission angle, interference and tolerance sensitivity. Kinematic equivalence is not practical equivalence.
 
 ---
 
