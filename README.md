@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 119 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (50 checks)
+npm test           # 121 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (51 checks)
 npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
@@ -25,8 +25,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (119) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 50-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (121) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 51-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -36,6 +36,13 @@ a bar, editing the target trajectory, changing a constraint, navigating to the A
 pages, and the EN/TR switch. `SMOKE_SETTLE` raises the settle time
 because CI runners are slower than a dev box, and `CHROMIUM` can point the script at a specific
 browser binary; otherwise it falls back to whatever Playwright installed.
+
+Locally the browser is a one-time install — `npm install` does not fetch it:
+
+```bash
+npx playwright install chromium        # once, then `npm run smoke` just works
+CHROMIUM="/path/to/chrome" npm run smoke   # or point it at a browser you already have
+```
 
 ---
 
@@ -57,16 +64,20 @@ rendered by a small Markdown subset parser that emits React nodes throughout —
 no `dangerouslySetInnerHTML` anywhere — with a filterable table of contents,
 scroll-spy and per-heading deep links (`#/theory/15-5-analitik-tavan`).
 
-The Turkish reference is the full-depth document: **5000 lines, 49 chapters**,
-covering structure and mobility, Assur groups, closed-form and numerical
-position analysis, branch continuity, velocity and acceleration, instant
-centres, Jacobians and singularities, transmission angle, coupler curves,
-cognates, all three synthesis tasks, Burmester theory, optimisation, curve
-comparison, dynamics, balancing, cams, gears, spatial and parallel mechanisms,
-interference and layering, tolerances, compliant mechanisms, worked examples, a
-mistake list, a design checklist, an FAQ, a glossary and a reference list. The
-English version covers the same structure more concisely; where they differ in
-detail, the Turkish text is the more complete one, and the document says so.
+Both references are full-depth: **5000 lines, 49 chapters each**, covering
+structure and mobility, Assur groups, closed-form and numerical position
+analysis, branch continuity, velocity and acceleration, instant centres,
+Jacobians and singularities, transmission angle, coupler curves, cognates, all
+three synthesis tasks, Burmester theory, optimisation, curve comparison,
+dynamics, balancing, cams, gears, spatial and parallel mechanisms, interference
+and layering, tolerances, compliant mechanisms, six-bar linkages, a catalogue of
+classical mechanisms, simulation practice, worked examples, a mistake list, a
+design checklist, an FAQ, a glossary and a reference list.
+
+The two are written independently rather than translated line by line — the
+same chapters in the same order, with the emphasis and the examples chosen for
+each language. A test asserts that both reach 5000 lines, so neither can drift
+into being the abridged one.
 
 ## Discoverability (SEO / AEO)
 
@@ -83,11 +94,11 @@ the actual text.
 |---|---|
 | `/tr/` · `/en/` | What the workbench is, the measured results, the method |
 | `/tr/hakkinda/` · `/en/about/` | Project and developer |
-| `/tr/mekanizma-teknigi/` · `/en/theory/` | The full reference — 243 kB and 152 kB of rendered HTML |
+| `/tr/mekanizma-teknigi/` · `/en/theory/` | The full reference — 243 kB and 265 kB of rendered HTML |
 | `sitemap.xml` | All six URLs, each with `lastmod`, `changefreq`, `priority` and `xhtml:link` alternates |
 | `robots.txt` | Allows everything except source maps; points at the sitemap |
 | `llms.txt` | The [llmstxt.org](https://llmstxt.org) index — what the project is, in links |
-| `llms-full.txt` | Both references as one 282 kB plain-text payload for answer engines |
+| `llms-full.txt` | Both references as one 373 kB plain-text payload for answer engines |
 
 These pages are **content, not redirects**. Bouncing a crawler to `#/theory`
 would hand it back the empty shell, which is the problem being solved; each page
@@ -120,7 +131,7 @@ SITE_URL=https://example.com npm run build
 ```
 
 which also rewrites the origin baked into `index.html`. `tests/seo.test.ts`
-(22 of the 119 tests) runs the real generator into a temporary directory and
+(22 of the 121 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
@@ -435,7 +446,7 @@ src/
   i18n/        translations (en + tr, key-parity enforced by the type system) · provider
   app/         Shell (routing) · App (designer) · router (hash routes) · designPresets · exportDesign
   pages/       AboutPage · TheoryPage
-  content/     about (developer + project facts) · theory.tr.md (5000 lines) · theory.en.md
+  content/     about (developer + project facts) · theory.tr.md · theory.en.md (5000 lines each)
   ui/          ControlPanel · MetricsPanel · LinkTable · DesignPanels (mechanism size, constraints,
                target editor, selection inspector) · HoverHint · Markdown · markdownHtml ·
                SiteNav · TorqueChart · LanguageSwitch · primitives
@@ -446,6 +457,14 @@ scripts/       optimize (--dyads N) · merge · refreshMetrics · genInitial · 
 
 **Units.** Geometry, UI and rendering are in millimetres; all dynamics are strict SI. Every
 crossing goes through `utils/units.ts`.
+
+**No compiled file may shadow its source.** A stale `vite.config.js`, committed long ago beside
+`vite.config.ts`, silently won every build: Vite resolves `.js` first, so the `manualChunks`
+setting nobody could see was never applied and the entry chunk sat at 802 kB. The same class of
+bug had already appeared inside `src/`, where vitest resolved compiled copies instead of the
+sources it was meant to test. `.gitignore` now covers the repo root as well as the source tree,
+and a test walks the tree asserting that no `.ts`/`.tsx` file has a `.js` sibling — the failure
+mode is invisible at runtime, so it needs a test rather than vigilance.
 
 **Curve matching.** The target is rigidly aligned to the LED path — rotation and translation only,
 never scale, since 250 × 250 mm is a physical requirement. The optimal (shift, direction, rotation,

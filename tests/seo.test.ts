@@ -216,8 +216,11 @@ describe('generated pages', () => {
       expect(html).toContain('<pre><code>');
       expect(html.length).toBeGreaterThan(120_000);
     }
-    // The Turkish document is the fuller one; the pages should reflect that.
-    expect(pageHtml('theory', 'tr').length).toBeGreaterThan(pageHtml('theory', 'en').length);
+    // Neither language is the abridged one. Comparing sizes directly would only
+    // measure how long the words are; comparing chapter counts measures cover.
+    const chapters = (lang: (typeof LANGS)[number]) =>
+      pageHtml('theory', lang).split('<h1 id=').length - 1;
+    expect(chapters('tr')).toBe(chapters('en'));
   });
 
   it('marks the FAQ up as structured data in both languages', () => {
@@ -250,7 +253,11 @@ describe('generated pages', () => {
       for (const lang of LANGS) {
         const html = pageHtml(page.id, lang);
         expect(html).not.toMatch(/http-equiv=["']refresh/i);
-        expect(html).not.toMatch(/location\s*=/i);
+        // Only a real script-driven redirect counts. Matching bare
+        // `location =` also flagged the prose — §38.3 of the reference sets a
+        // pseudo-rigid-body pivot with "location = (1 − γ)·L".
+        expect(html).not.toMatch(/(?:window|document|top|self)\s*\.\s*location\s*=/i);
+        expect(html).not.toMatch(/location\s*\.\s*(?:href|replace|assign)\s*[=(]/i);
       }
     }
   });

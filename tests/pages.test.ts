@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ROUTES, hrefFor, parseHash } from '../src/app/router';
 import { parseMarkdown, slugify, tocOf, type Block } from '../src/ui/Markdown';
@@ -111,8 +111,23 @@ describe('theory reference', () => {
   const trBlocks = parseMarkdown(TR);
   const enBlocks = parseMarkdown(EN);
 
-  it('the Turkish reference is the full-length document', () => {
-    expect(TR.replace(/\n$/, '').split('\n').length).toBeGreaterThanOrEqual(5000);
+  it('both references are the full-length document', () => {
+    // Neither language is the abridged one. Without this, the English text
+    // silently became two thirds of the Turkish and nothing said so.
+    for (const [name, src] of [
+      ['tr', TR],
+      ['en', EN],
+    ] as const) {
+      expect(src.replace(/\n$/, '').split('\n').length, `${name} lines`).toBeGreaterThanOrEqual(
+        5000,
+      );
+    }
+  });
+
+  it('the two references share the same chapter structure', () => {
+    const chapters = (src: string) =>
+      src.split('\n').filter((l) => /^# \d+\. /.test(l)).length;
+    expect(chapters(EN)).toBe(chapters(TR));
   });
 
   it('both languages are substantial and structured', () => {
@@ -209,5 +224,33 @@ describe('about content', () => {
       // guards against; identical strings are almost never a real translation.
       expect(p.tr).not.toBe(p.en);
     }
+  });
+});
+
+describe('build hygiene', () => {
+  const root = new URL('../', import.meta.url);
+
+  /** Every .ts/.tsx file in the repo, ignoring dependencies and build output. */
+  const sources = (dir: URL, acc: string[] = []): string[] => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (['node_modules', 'dist', '.git'].includes(e.name)) continue;
+      const child = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+      if (e.isDirectory()) sources(child, acc);
+      else if (/\.tsx?$/.test(e.name)) acc.push(child.pathname);
+    }
+    return acc;
+  };
+
+  it('no compiled .js sits next to the .ts it was built from', () => {
+    // Twice now a stale compiled copy has shadowed its source with no error:
+    // once in src/, where vitest resolved `.js` first and a rewritten module
+    // silently kept its old behaviour, and once at the root, where Vite
+    // resolves vite.config.js *before* vite.config.ts and quietly built with
+    // a config nobody had edited in weeks. Both are invisible at runtime —
+    // everything "works", just not from the file you are reading.
+    const shadowed = sources(root)
+      .map((ts) => ts.replace(/\.tsx?$/, '.js'))
+      .filter((js) => existsSync(js));
+    expect(shadowed).toEqual([]);
   });
 });
