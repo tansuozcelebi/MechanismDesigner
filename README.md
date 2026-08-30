@@ -12,8 +12,9 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 97 unit + integration tests
+npm test           # 119 unit + integration tests
 npm run smoke      # browser smoke test against a running dev server (50 checks)
+npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
 ```
@@ -24,7 +25,7 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (97) → `build`, and uploads `dist` as an artifact |
+| **verify** | `npm ci` → `typecheck` → `test` (119) → `build`, and uploads `dist` as an artifact |
 | **smoke** | installs Chromium, starts the dev server, runs the 50-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
@@ -66,6 +67,65 @@ interference and layering, tolerances, compliant mechanisms, worked examples, a
 mistake list, a design checklist, an FAQ, a glossary and a reference list. The
 English version covers the same structure more concisely; where they differ in
 detail, the Turkish text is the more complete one, and the document says so.
+
+## Discoverability (SEO / AEO)
+
+Hash routing is right for the app and wrong for crawlers: a search engine does
+not treat `#/theory` as a URL distinct from `/`, so left alone the entire site
+is **one** indexable address whose HTML is an empty `<div id="root">`. A sitemap
+listing `#/…` fragments would not fix that — it would list one page six times.
+
+So `npm run build` runs `scripts/seo.ts` after `vite build` and emits a real
+crawlable surface next to the bundle: six static pages at real paths, carrying
+the actual text.
+
+| Generated | |
+|---|---|
+| `/tr/` · `/en/` | What the workbench is, the measured results, the method |
+| `/tr/hakkinda/` · `/en/about/` | Project and developer |
+| `/tr/mekanizma-teknigi/` · `/en/theory/` | The full reference — 243 kB and 152 kB of rendered HTML |
+| `sitemap.xml` | All six URLs, each with `lastmod`, `changefreq`, `priority` and `xhtml:link` alternates |
+| `robots.txt` | Allows everything except source maps; points at the sitemap |
+| `llms.txt` | The [llmstxt.org](https://llmstxt.org) index — what the project is, in links |
+| `llms-full.txt` | Both references as one 282 kB plain-text payload for answer engines |
+
+These pages are **content, not redirects**. Bouncing a crawler to `#/theory`
+would hand it back the empty shell, which is the problem being solved; each page
+instead renders the same Markdown the app renders, through the same parser
+(`src/ui/markdownHtml.ts` is a second renderer over `parseMarkdown`, so a heading
+gets the *same* anchor id in the static page and in the app) and links to its
+interactive equivalent.
+
+Answer-engine surface, beyond the plain text: `SoftwareApplication`, `WebSite`,
+`AboutPage`, `Person`, `TechArticle` and `BreadcrumbList` JSON-LD, plus a
+`FAQPage` built from the FAQ chapter of each reference — the headings under
+*Sıkça sorulan sorular* (46) and *Frequently asked questions* (42) are lifted
+straight out of the Markdown, so the structured answers cannot drift from the
+document. Every `<` is escaped to `<` inside a JSON-LD block: a
+string containing a closing `script` tag would otherwise end the element early.
+
+`src/seo/config.ts` is the single source for URLs, titles, descriptions and
+keywords, so the sitemap, the canonicals, the hreflang set and the `<head>` of
+the shell cannot disagree — a sitemap URL that is never generated is a 404
+reported to Google. Paths are localised (`/tr/mekanizma-teknigi/`, not a shared
+English slug) because the Turkish keyword in the URL is worth more to a Turkish
+search than tidiness is.
+
+The deploy origin defaults to the GitHub Pages URL this repository would publish
+to; there is no `CNAME` or `homepage` field committed to override it. Point it
+elsewhere with one setting:
+
+```bash
+SITE_URL=https://example.com npm run build
+```
+
+which also rewrites the origin baked into `index.html`. `tests/seo.test.ts`
+(22 of the 119 tests) runs the real generator into a temporary directory and
+asserts on its output rather than on its source: sitemap ↔ generated-page
+consistency in both directions, well-formed XML, reciprocal hreflang, a
+`robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
+file that exists, parseable JSON-LD, escaped markup, and no `http-equiv=refresh`
+anywhere.
 
 ## A. Topology
 
@@ -377,10 +437,11 @@ src/
   pages/       AboutPage · TheoryPage
   content/     about (developer + project facts) · theory.tr.md (5000 lines) · theory.en.md
   ui/          ControlPanel · MetricsPanel · LinkTable · DesignPanels (mechanism size, constraints,
-               target editor, selection inspector) · HoverHint · Markdown · SiteNav ·
-               TorqueChart · LanguageSwitch · primitives
+               target editor, selection inspector) · HoverHint · Markdown · markdownHtml ·
+               SiteNav · TorqueChart · LanguageSwitch · primitives
+  seo/         config (URLs, titles, descriptions, keywords — one source for all of them)
   utils/       math · units
-scripts/       optimize (--dyads N) · merge · refreshMetrics · genInitial · findSeed · smoke
+scripts/       optimize (--dyads N) · merge · refreshMetrics · genInitial · findSeed · smoke · seo
 ```
 
 **Units.** Geometry, UI and rendering are in millimetres; all dynamics are strict SI. Every
