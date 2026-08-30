@@ -522,17 +522,21 @@ check(
   `#${anchorId} at y=${landed}`,
 );
 
+// Both references are full length — neither language is the abridged one.
+// The line count is read as a number rather than matched literally, so that
+// editing the document does not become a smoke failure at 5001 lines.
+const lineCount = (meta) => Number((/([\d\s]+)\s*(?:lines|satır)/.exec(meta) ?? [])[1]?.replace(/\s/g, ''));
+const enMeta = (await page.locator('.toc-meta').textContent()).trim();
+check('the English reference is full length', lineCount(enMeta) >= 5000, enMeta);
+
 // The reference follows the language switch.
 const trFirst = await page.locator('.md h1').first().textContent();
 await page.click('.langswitch button:has-text("TR")');
 await page.waitForTimeout(3000);
 const trAfter = await page.locator('.md h1').first().textContent();
 check('the reference is bilingual', trAfter !== trFirst, `${trFirst} -> ${trAfter}`);
-check(
-  'the Turkish reference is the full-length one',
-  /5000/.test(await page.locator('.toc-meta').textContent()),
-  (await page.locator('.toc-meta').textContent()).trim(),
-);
+const trMeta = (await page.locator('.toc-meta').textContent()).trim();
+check('the Turkish reference is full length', lineCount(trMeta) >= 5000, trMeta);
 
 // Back to the designer, and the canvas must come back alive.
 await page.click('.langswitch button:has-text("EN")');

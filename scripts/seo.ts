@@ -6,7 +6,7 @@
  * Why this exists at all: the app is a single page with **hash routing**, and a
  * crawler does not treat `#/theory` as a URL distinct from `/`. Left alone, the
  * whole site is one indexable page whose body is an empty `<div id="root">` —
- * the 5000-line reference is invisible to search engines and to answer engines
+ * the two 5000-line references are invisible to search engines and to answer engines
  * alike, no matter how many meta tags the shell carries.
  *
  * So the build also writes real HTML at real paths. Those pages contain the
@@ -543,7 +543,7 @@ generated for reading; the interactive app lives at ${abs('/')}.
 
 ## Documentation
 
-- [Mechanism Theory — A Working Reference](${abs(pageById('theory').en.path)}): ${
+- [Mechanism Theory — A Working Reference (5000 lines)](${abs(pageById('theory').en.path)}): ${
   pageById('theory').en.description
 }
 - [Mekanizma Tekniği — Kapsamlı Referans (Türkçe, 5000 satır)](${abs(
