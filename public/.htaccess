@@ -1,0 +1,111 @@
+# KREAMET — Apache configuration for the deployed site.
+#
+# This file ships in public/, so Vite copies it into dist/ and the deploy puts
+# it at the site root. SiteGround runs Apache behind Nginx and honours it.
+#
+# There are deliberately no rewrite rules for routing. The app uses hash
+# routing (#/designer, #/about, #/theory), which never reaches the server, and
+# the generated pages (/tr/, /en/theory/, …) are real directories with a real
+# index.html. Adding a SPA catch-all would actively break the crawlable pages
+# by serving the empty shell in place of the content.
+
+# ----------------------------------------------------------------------
+# Character set
+# ----------------------------------------------------------------------
+# The HTML carries <meta charset="utf-8">, but llms.txt, llms-full.txt and
+# robots.txt have no in-band declaration. Without this header the Turkish
+# reference — 24 000 words of ı, ş, ğ, ç, ö, ü — is served as Latin-1 and
+# mojibakes in every client that believes the header over guesswork.
+AddDefaultCharset utf-8
+
+<IfModule mod_mime.c>
+  AddCharset utf-8 .html .css .js .json .txt .xml .svg .md
+  AddType text/plain                   .txt
+  AddType application/xml              .xml
+  AddType image/svg+xml                .svg
+  AddType application/manifest+json    .webmanifest
+  AddType application/json             .map
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Compression
+# ----------------------------------------------------------------------
+# The reference pages are 243 kB and 265 kB of HTML and llms-full.txt is
+# 373 kB. They compress to roughly a quarter of that, so this is the single
+# largest win available on the whole site.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE application/xml application/rss+xml
+  AddOutputFilterByType DEFLATE image/svg+xml application/manifest+json
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Caching
+# ----------------------------------------------------------------------
+# Asset filenames carry a content hash, so they can be cached forever: a
+# changed file is a different name. HTML must NOT be cached that way, or a
+# deploy stays invisible until the cache expires — it is revalidated on every
+# request instead, which is cheap because the response is usually a 304.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                          "access plus 1 hour"
+  ExpiresByType text/css                  "access plus 1 year"
+  ExpiresByType application/javascript    "access plus 1 year"
+  ExpiresByType image/svg+xml             "access plus 1 month"
+  ExpiresByType text/html                 "access plus 0 seconds"
+  ExpiresByType text/plain                "access plus 1 hour"
+  ExpiresByType application/xml           "access plus 1 hour"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Hashed build output: immutable for a year.
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Entry points and generated pages: always revalidate.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  # The crawler-facing files change with the content, not with a hash.
+  <FilesMatch "^(robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+
+  # Modest, uncontroversial hardening. No CSP here: the app is inline-script
+  # free but the generated pages carry inline <style> and JSON-LD, and a CSP
+  # tight enough to be worth having needs to be validated against both.
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Canonical host
+# ----------------------------------------------------------------------
+# One origin must win, or the site competes with itself for its own rankings
+# and the canonicals in the HTML disagree with the URL that served them.
+# HTTPS is forced here; the www/non-www choice belongs in Site Tools, because
+# only the certificate knows which hostnames it covers.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Serving rules
+# ----------------------------------------------------------------------
+DirectoryIndex index.html
+
+# A directory without an index.html should 404, not list its contents.
+Options -Indexes
+
+# The deploy manifest is bookkeeping between the deploy script and the server;
+# it is not part of the site.
+<Files ".deploy-manifest.json">
+  Require all denied
+</Files>
