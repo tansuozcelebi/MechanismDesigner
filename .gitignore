@@ -3,6 +3,11 @@ dist/
 *.local
 .DS_Store
 
+# Deploy credentials. The example file is committed; anything real is not.
+.env
+.env.*
+!.env.*.example
+
 # TypeScript build artifacts: sources are .ts and must never be shadowed by
 # stale compiled copies next to them. The root matters as much as the source
 # tree — Vite resolves vite.config.js *before* vite.config.ts, so one stale

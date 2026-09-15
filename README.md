@@ -12,9 +12,11 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 121 unit + integration tests
+npm test           # 141 unit + integration tests
 npm run smoke      # browser smoke test against a running dev server (51 checks)
 npm run build      # typecheck → bundle → generate the static/SEO surface
+npm run deploy:dry # what a deploy would change, without changing it
+npm run deploy     # publish dist/ to SiteGround over FTPS
 npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult.json)
                    #   add --dyads N to search a different mechanism size
 ```
@@ -25,7 +27,7 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (121) → `build`, and uploads `dist` as an artifact |
+| **verify** | `npm ci` → `typecheck` → `test` (141) → `build`, and uploads `dist` as an artifact |
 | **smoke** | installs Chromium, starts the dev server, runs the 51-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
@@ -131,12 +133,129 @@ SITE_URL=https://example.com npm run build
 ```
 
 which also rewrites the origin baked into `index.html`. `tests/seo.test.ts`
-(22 of the 121 tests) runs the real generator into a temporary directory and
+(22 of the 141 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
 file that exists, parseable JSON-LD, escaped markup, and no `http-equiv=refresh`
 anywhere.
+
+## Deployment
+
+Every commit that lands on `main` and passes CI is published automatically.
+
+```
+push to main → CI (typecheck · tests · build · smoke) → green? → Deploy
+```
+
+`.github/workflows/deploy.yml` is chained to CI with `workflow_run` rather than
+triggered by the push, and it checks out `workflow_run.head_sha` — the commit CI
+actually tested, not whatever `main` points at by the time the deploy starts. A
+red build never reaches the site, and a push landing mid-deploy cannot smuggle
+untested code into it.
+
+| | |
+|---|---|
+| Trigger | CI success on `main`, or `workflow_dispatch` for a manual re-deploy |
+| Transport | FTPS (explicit TLS) via `scripts/deploy.mjs` |
+| Concurrency | one at a time, and **never** cancelled mid-upload |
+| Credentials | five repository secrets, `env:`-mapped to one step |
+
+### One-time setup
+
+The five `SITEGROUND_*` secrets are configured. One thing is still needed:
+
+> **Settings → Secrets and variables → Actions → Variables → New repository
+> variable**, named `SITE_URL`, set to the origin the site is served from with
+> no trailing slash — e.g. `https://kreamet.com`.
+
+The deploy **fails with that instruction** if it is missing, deliberately. The
+build bakes an absolute origin into every canonical link, every `hreflang`, the
+sitemap and `llms.txt`; unset, it falls back to the GitHub Pages address, and
+the live site would then tell search engines its canonical copy lives somewhere
+else. That is worse than shipping no SEO data at all, so it is not something to
+default and hope about. It is a variable rather than a secret because it is
+public information that belongs in the build log.
+
+`SITE_URL` is set on the build step only, never job-wide: `src/seo/config.ts`
+reads it at import time, so a job-level value would also reach vitest and move
+the ground under the tests that pin the default.
+
+### Why the deploy script is ours
+
+There are good third-party FTP deploy actions. Using one means the FTP password
+is in the environment of code controlled by whoever can move that action's tag,
+and re-verifying that on every release is more work than the ~200 lines it
+replaces. `scripts/deploy.mjs` also runs locally, so a deploy from a laptop and
+a deploy from CI are the same code path rather than two things that agree until
+they don't.
+
+It syncs by content hash. A manifest of sha256 digests lives on the server; each
+run uploads only what changed, removes what the build dropped, and **leaves
+anything it does not know about alone** — the remote directory may hold files
+this project did not put there, and a deploy must never be why they vanish.
+Ordering is load-bearing in two places:
+
+- **Assets before HTML.** HTML uploaded first would reference chunks that are
+  not there yet, so a visitor mid-deploy gets a broken page instead of the
+  previous one.
+- **Manifest last.** It is the commit point. Interrupt a deploy anywhere earlier
+  and the server still describes the previous state, so the next run redoes the
+  missing work instead of skipping it. Deletes are idempotent for the same
+  reason.
+
+Source maps are excluded by default (~5 MB); `DEPLOY_SOURCEMAPS=1` includes
+them. The manifest records intent rather than observation, so a file deleted on
+the server by hand is not noticed — `DEPLOY_FORCE=1` re-uploads everything.
+
+### Deploying by hand
+
+```bash
+cp .env.deploy.example .env.deploy     # gitignored; fill in
+set -a && . ./.env.deploy && set +a
+npm run build
+npm run deploy:dry                     # connect, compare, report, change nothing
+npm run deploy
+```
+
+### `public/.htaccess`
+
+Ships with the build (Vite copies `public/` verbatim, dotfiles included) and
+lands at the site root. It sets UTF-8 explicitly, because `llms-full.txt` is
+373 kB of Turkish with no `<meta charset>` to fall back on and is mojibake if
+the header says Latin-1. It also enables compression, caches hashed assets for a
+year while making HTML revalidate on every request, and forces HTTPS.
+
+What it deliberately does **not** contain is a SPA catch-all rewrite. Hash
+routing never reaches the server, the generated pages are real directories with
+real `index.html` files, and a rewrite to `/index.html` would serve the empty
+app shell in place of `/en/theory/` — undoing the entire reason those pages
+exist. A test asserts the rule is absent.
+
+### What the tests hold
+
+`tests/deploy.test.ts` (20 tests) pins the parts that break silently:
+
+- the workflow reads **exactly** the five secrets that exist — a typo resolves
+  to an empty string and surfaces much later as a confusing connection error;
+- no secret is interpolated into a `run:` line, only into `env:`;
+- the pre-flight list of files to verify before uploading covers every page
+  `src/seo/config.ts` generates, so adding a page cannot quietly ship without it;
+- the deploy waits on CI, deploys the tested SHA, and is never cancelled;
+- FTP command logging stays off, so `PASS` is never printed;
+- paths are normalised to posix, so a deploy from Windows produces the same
+  manifest keys as one from Linux.
+
+Both guard tests were checked by violating them: a secret moved into a `run:`
+line, and a page added to `PAGES` without updating the workflow. Both fail.
+
+After uploading, the workflow fetches the live site and looks for the entry
+chunk's hashed filename. A deploy that reports success while the server still
+serves the old bundle — almost always a `SITEGROUND_REMOTE_DIR` that is not the
+directory the domain is served from — fails here rather than being discovered
+later.
+
+---
 
 ## A. Topology
 

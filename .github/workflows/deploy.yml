@@ -1,0 +1,190 @@
+name: Deploy
+
+# Every commit that reaches main and passes CI goes live.
+#
+# This is deliberately chained to the CI workflow rather than triggered by the
+# push directly: a deploy that does not wait for the tests is a deploy that
+# publishes a broken site at full speed. `workflow_run` fires once CI has
+# finished, and the `conclusion` check below means only a green run continues.
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+  # Manual re-deploy, e.g. after fixing a variable or restoring from a backup.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit, tag or branch to deploy'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never cancel one that is running: the site is
+# mid-upload at that point, and killing it leaves a mix of old HTML and new
+# assets. A superseded deploy waits its turn instead.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and publish to SiteGround
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Only a successful CI run on main. A manual dispatch skips the condition
+    # because there is no workflow_run payload to read.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+
+    steps:
+      # First, before doing any work: the one setting that cannot be defaulted.
+      - name: Require the site URL
+        if: vars.SITE_URL == ''
+        run: |
+          {
+            echo "## Deploy stopped: SITE_URL is not set"
+            echo
+            echo 'The build bakes an absolute origin into every canonical link, every'
+            echo '`hreflang`, the sitemap and `llms.txt`. Left unset it falls back to the'
+            echo 'GitHub Pages address, so the deployed site would tell search engines that'
+            echo 'the canonical copy lives somewhere else — worse than having no SEO data.'
+            echo
+            echo 'Fix, once: **Settings → Secrets and variables → Actions → Variables →'
+            echo 'New repository variable**, named `SITE_URL`, set to the origin the site is'
+            echo 'served from, with no trailing slash — for example `https://kreamet.com`.'
+            echo
+            echo 'It is a variable rather than a secret because it is public information and'
+            echo 'it needs to appear in build logs and in this summary.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      # The SHA CI actually tested, not whatever main points at now. Without
+      # this, a push landing during a deploy would publish untested code.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # SITE_URL is set on this step only, never job-wide: src/seo/config.ts
+      # reads it at import time, so exporting it for the whole job would change
+      # what tests/seo.test.ts is asserting about the default.
+      - name: Build for production
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: npm run build
+
+      # Cheap insurance against uploading a half-built directory. The build
+      # would have to fail silently for this to trigger, which is exactly the
+      # case worth catching before it reaches the public site.
+      #
+      # Values reach the shell through env, never by `${{ }}` inside run: —
+      # an interpolated string is pasted into the script before bash sees it,
+      # so a stray quote or backtick in a variable would be executed.
+      - name: Verify the build output
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          missing=0
+          for f in \
+            dist/index.html \
+            dist/.htaccess \
+            dist/robots.txt \
+            dist/sitemap.xml \
+            dist/llms.txt \
+            dist/llms-full.txt \
+            dist/tr/index.html \
+            dist/tr/hakkinda/index.html \
+            dist/tr/mekanizma-teknigi/index.html \
+            dist/en/index.html \
+            dist/en/about/index.html \
+            dist/en/theory/index.html
+          do
+            if [ ! -s "$f" ]; then echo "missing or empty: $f"; missing=1; fi
+          done
+          [ "$missing" = 0 ] || { echo "build output incomplete — not deploying"; exit 1; }
+
+          # The origin must have made it into the generated files. A typo in the
+          # variable name would otherwise ship the fallback origin silently.
+          if ! grep -qF -- "$SITE_URL" dist/sitemap.xml; then
+            echo "sitemap.xml does not contain $SITE_URL — SITE_URL did not reach the build"
+            exit 1
+          fi
+          echo "build output complete, origin is $SITE_URL"
+
+      - name: Deploy over FTPS
+        env:
+          SITEGROUND_FTP_HOST: ${{ secrets.SITEGROUND_FTP_HOST }}
+          SITEGROUND_FTP_USER: ${{ secrets.SITEGROUND_FTP_USER }}
+          SITEGROUND_FTP_PASSWORD: ${{ secrets.SITEGROUND_FTP_PASSWORD }}
+          SITEGROUND_FTP_PORT: ${{ secrets.SITEGROUND_FTP_PORT }}
+          SITEGROUND_REMOTE_DIR: ${{ secrets.SITEGROUND_REMOTE_DIR }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: npm run deploy
+
+      # Fetch the live site and check it is the build we just uploaded, by
+      # looking for the asset filename the build produced. A deploy that
+      # reports success while the server still serves the old bundle is the
+      # failure this catches — usually a remote directory that is not the one
+      # the domain is served from.
+      - name: Check the live site
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          entry=$(node -e "
+            const {readdirSync}=require('node:fs');
+            const f=readdirSync('dist/assets').find(n=>/^index-.*\.js$/.test(n));
+            if(!f){console.error('no entry chunk in dist/assets');process.exit(1)}
+            process.stdout.write(f);
+          ")
+          echo "expecting asset: $entry"
+
+          for wait in 10 20 30 40 50 60; do
+            body=$(curl -fsSL --max-time 30 "$SITE_URL/" || true)
+            if printf '%s' "$body" | grep -qF -- "$entry"; then
+              echo "live site is serving this build"
+              exit 0
+            fi
+            echo "not visible yet, waiting ${wait}s"
+            sleep "$wait"
+          done
+
+          echo
+          echo "The upload itself succeeded, but $SITE_URL/ is not serving $entry."
+          echo "In order of likelihood:"
+          echo "  1. SITEGROUND_REMOTE_DIR is not the directory this domain serves from."
+          echo "  2. SiteGround's dynamic cache is still holding the old page — flush it"
+          echo "     in Site Tools, or exclude the site root from caching."
+          echo "  3. SITE_URL does not resolve to this hosting account."
+          exit 1
+
+      - name: Summary
+        if: always()
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          DEPLOYED_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            echo "## Deploy"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Site | ${SITE_URL} |"
+            echo "| Commit | \`${DEPLOYED_REF}\` |"
+            echo "| Result | ${RESULT} |"
+          } >> "$GITHUB_STEP_SUMMARY"
