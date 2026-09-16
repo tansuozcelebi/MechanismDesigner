@@ -550,6 +550,161 @@ check(
 const navErrors = errors.filter((e) => !e.includes('favicon'));
 check('navigating between pages raises no errors', navErrors.length === 0, navErrors.slice(0, 2).join('; '));
 
+/* ------------------------------------------------------------------ */
+/* Phone layout                                                        */
+/* ------------------------------------------------------------------ */
+
+// A separate context at phone size. The regression this guards is not subtle:
+// with three fixed columns the canvas came out *zero* pixels wide on a 390px
+// screen and the page scrolled 588px sideways, so the mechanism — the whole
+// point of the app — could not be seen at all.
+const phone = await browser.newPage({
+  viewport: { width: 390, height: 844 },
+  hasTouch: true,
+  isMobile: true,
+});
+const phoneErrors = [];
+phone.on('pageerror', (e) => phoneErrors.push(String(e)));
+await phone.addInitScript(() => window.localStorage.setItem('kreamet.lang', 'en'));
+await phone.goto(URL, { waitUntil: 'networkidle' });
+await phone.waitForTimeout(SETTLE + 2000);
+
+const canvasBox = await phone.evaluate(() => {
+  const b = document.querySelector('.canvas-wrap canvas').getBoundingClientRect();
+  return [Math.round(b.width), Math.round(b.height)];
+});
+check(
+  'the mechanism gets real canvas on a phone',
+  canvasBox[0] > 300 && canvasBox[1] > 300,
+  `${canvasBox[0]}x${canvasBox[1]}`,
+);
+
+const overflow = await phone.evaluate(() => [
+  document.documentElement.scrollWidth,
+  document.documentElement.clientWidth,
+]);
+check(
+  'the phone layout does not scroll sideways',
+  overflow[0] <= overflow[1],
+  `scrollWidth ${overflow[0]} vs ${overflow[1]}`,
+);
+
+check(
+  'the drawer toggles are present on a phone',
+  (await phone.locator('.panel-toggles button').count()) === 2,
+);
+
+// A closed drawer must be gone from the tab order, not merely out of sight.
+let inDrawer = 0;
+for (let i = 0; i < 40; i++) {
+  await phone.keyboard.press('Tab');
+  if (await phone.evaluate(() => Boolean(document.activeElement?.closest('.sidebar')))) inDrawer += 1;
+}
+check('a closed drawer is out of the tab order', inDrawer === 0, `${inDrawer} tab stops reached it`);
+
+await phone.locator('.panel-toggles button').first().click();
+await phone.waitForTimeout(500);
+check(
+  'the design drawer opens over the canvas',
+  (await phone.evaluate(
+    () => getComputedStyle(document.querySelector('.sidebar.left')).visibility,
+  )) === 'visible',
+);
+
+// Collapse-all: the reason it exists is that closing a dozen panels one tap at
+// a time is not a thing anyone will do on a phone.
+const openBefore = await phone.locator('.sidebar.left .section .body').count();
+await phone.locator('.drawer-head button').first().click();
+await phone.waitForTimeout(300);
+const openAfter = await phone.locator('.sidebar.left .section .body').count();
+check(
+  'collapse-all closes every panel in the drawer',
+  openBefore > 1 && openAfter === 0,
+  `${openBefore} open -> ${openAfter}`,
+);
+
+// Expand-all opens *every* panel, which is more than were open to begin with —
+// several ship collapsed by default.
+const totalSections = await phone.locator('.sidebar.left .section').count();
+await phone.locator('.drawer-head button').nth(1).click();
+await phone.waitForTimeout(300);
+const openExpanded = await phone.locator('.sidebar.left .section .body').count();
+check(
+  'expand-all opens every panel',
+  openExpanded === totalSections && totalSections > openBefore,
+  `${openExpanded}/${totalSections} open (was ${openBefore})`,
+);
+
+await phone.keyboard.press('Escape');
+await phone.waitForTimeout(500);
+check(
+  'Escape closes the drawer',
+  (await phone.evaluate(
+    () => getComputedStyle(document.querySelector('.sidebar.left')).visibility,
+  )) === 'hidden',
+);
+
+// Touch, not mouse: the canvas sets `touch-action: none` and the controller
+// listens for pointer events, and this is what proves the pair works together.
+const phoneScreen = (wx, wy) =>
+  phone.evaluate(([x, y]) => {
+    const s = window.__viewer.scene;
+    const r = s.canvas.getBoundingClientRect();
+    const c = s.camera;
+    return [
+      r.left + ((x - c.left) / (c.right - c.left)) * r.width,
+      r.top + ((c.top - y) / (c.top - c.bottom)) * r.height,
+    ];
+  }, [wx, wy]);
+const phoneO2 = await phone.evaluate(() => {
+  const g = window.__viewer.geometry.ground[0];
+  return [g.x, g.y];
+});
+const phonePin = await phone.evaluate(() => {
+  const q = window.__viewer.currentPose;
+  return [q.points.A.x, q.points.A.y];
+});
+const tFrom = await phoneScreen(phonePin[0], phonePin[1]);
+const tTo = await phoneScreen(phoneO2[0], phoneO2[1] + 120);
+const touchAt = (type, x, y) =>
+  phone.evaluate(
+    ([type, x, y]) =>
+      document.querySelector('.canvas-wrap canvas').dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 1,
+          pointerType: 'touch',
+          isPrimary: true,
+          clientX: x,
+          clientY: y,
+          buttons: type === 'pointerup' ? 0 : 1,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    [type, x, y],
+  );
+await touchAt('pointerdown', tFrom[0], tFrom[1]);
+for (let i = 1; i <= 20; i += 1) {
+  await touchAt(
+    'pointermove',
+    tFrom[0] + ((tTo[0] - tFrom[0]) * i) / 20,
+    tFrom[1] + ((tTo[1] - tFrom[1]) * i) / 20,
+  );
+}
+await touchAt('pointerup', tTo[0], tTo[1]);
+await phone.waitForTimeout(400);
+const touchTheta = await phone.evaluate(
+  () => (((((window.__viewer.theta * 180) / Math.PI) % 360) + 360) % 360),
+);
+check(
+  'a touch drag turns the crank',
+  Math.abs(touchTheta - 90) < 3,
+  `${touchTheta.toFixed(2)}° (expect 90°)`,
+);
+
+check('the phone layout raises no errors', phoneErrors.length === 0, phoneErrors.slice(0, 2).join('; '));
+await phone.close();
+
 await browser.close();
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
