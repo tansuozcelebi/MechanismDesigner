@@ -1,4 +1,27 @@
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+
+/**
+ * Lets a container open or close every `Section` inside it at once.
+ *
+ * `stamp` is what drives it, not `open`: the point is to act on the *command*
+ * rather than on the state, so that a section the reader has since reopened by
+ * hand is closed again by the next "collapse all" instead of being ignored.
+ *
+ * A sidebar holding a dozen panels is navigable on a desktop and is not on a
+ * phone, where collapsing them one at a time costs a dozen taps and a lot of
+ * scrolling.
+ */
+export type SectionGroupCommand = { stamp: number; open: boolean };
+
+const SectionGroupContext = createContext<SectionGroupCommand | null>(null);
+
+export const SectionGroup = ({
+  command,
+  children,
+}: {
+  command: SectionGroupCommand | null;
+  children: ReactNode;
+}) => <SectionGroupContext.Provider value={command}>{children}</SectionGroupContext.Provider>;
 
 export function Section({
   title,
@@ -12,9 +35,29 @@ export function Section({
   right?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const group = useContext(SectionGroupContext);
+  const seen = useRef(group?.stamp ?? 0);
+
+  useEffect(() => {
+    if (!group || group.stamp === seen.current) return;
+    seen.current = group.stamp;
+    setOpen(group.open);
+  }, [group]);
+
   return (
     <div className="section">
-      <header onClick={() => setOpen((o) => !o)}>
+      <header
+        onClick={() => setOpen((o) => !o)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((o) => !o);
+          }
+        }}
+      >
         <span className={`chev ${open ? 'open' : ''}`}>▶</span>
         <h2>{title}</h2>
         {right}

@@ -48,8 +48,9 @@ import {
 } from '../ui/DesignPanels';
 import { HoverHint } from '../ui/HoverHint';
 import { TorqueChart } from '../ui/TorqueChart';
-import { Section } from '../ui/primitives';
+import { Section, SectionGroup, type SectionGroupCommand } from '../ui/primitives';
 import { SiteNav } from '../ui/SiteNav';
+import { useCompactLayout } from '../ui/useMediaQuery';
 import { useT } from '../i18n';
 import '../ui/styles.css';
 
@@ -125,6 +126,41 @@ export default function App() {
   const controllerRef = useRef<CanvasController | null>(null);
 
   const storedSummaries = useMemo(storedToSummaries, []);
+
+  /* ------------------------- compact layout --------------------------- */
+
+  /**
+   * Below the breakpoint the sidebars leave the grid and become drawers over
+   * the canvas, because three fixed columns do not fit on a phone: 336 + 300
+   * of side panel leaves a 390 px viewport with a zero-width canvas and 588 px
+   * of sideways scroll. Exactly one drawer is open at a time — two would cover
+   * the thing they are annotating.
+   */
+  const compact = useCompactLayout();
+  const [drawer, setDrawer] = useState<'left' | 'right' | null>(null);
+  const [groupCommand, setGroupCommand] = useState<SectionGroupCommand | null>(null);
+
+  const collapseAll = useCallback(
+    (open: boolean) => setGroupCommand((c) => ({ stamp: (c?.stamp ?? 0) + 1, open })),
+    [],
+  );
+
+  // Widening the window (or rotating to landscape) puts the sidebars back in
+  // the grid, where a drawer left open would sit over the canvas as a panel
+  // that cannot be closed — the state has to follow the layout.
+  useEffect(() => {
+    if (!compact) setDrawer(null);
+  }, [compact]);
+
+
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawer(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
 
   /* --------------------------- design state --------------------------- */
 
@@ -497,8 +533,29 @@ export default function App() {
   const scaleBarMm = 50;
   const scaleBarPx = scaleBarMm / Math.max(1e-9, scaleInfo.mmPerPixel);
 
+  /** Drawer header: what it is, collapse-all, and a way out. */
+  const drawerHead = (title: string) => (
+    <div className="drawer-head">
+      <strong>{title}</strong>
+      <button onClick={() => collapseAll(false)} title={t('panels.collapseAll')}>
+        {t('panels.collapseAll')}
+      </button>
+      <button onClick={() => collapseAll(true)} title={t('panels.expandAll')}>
+        {t('panels.expandAll')}
+      </button>
+      <button
+        className="drawer-close"
+        onClick={() => setDrawer(null)}
+        aria-label={t('panels.close')}
+        title={t('panels.close')}
+      >
+        ✕
+      </button>
+    </div>
+  );
+
   return (
-    <div className="app">
+    <div className={`app${compact ? ' compact' : ''}`}>
       <header className="header">
         <SiteNav
           subtitle={t('app.subtitle', {
@@ -513,7 +570,24 @@ export default function App() {
         />
       </header>
 
-      <aside className="sidebar left">
+      <aside
+        className={`sidebar left${drawer === 'left' ? ' open' : ''}`}
+        aria-hidden={compact && drawer !== 'left'}
+      >
+        {compact && drawerHead(t('panels.designTitle'))}
+        {/* On a narrow screen the header has no room for these, so they move
+            here rather than disappearing: the drawer is where the design is
+            being worked on anyway. */}
+        {compact && (
+          <div className="drawer-actions">
+            <span className={`badge ${designKind === 'optimized' ? 'pass' : 'info'}`}>
+              {designLabel}
+            </span>
+            <button onClick={loadInitial}>{t('app.loadInitial')}</button>
+            <button onClick={exportDesign}>{t('app.export')}</button>
+          </div>
+        )}
+        <SectionGroup command={groupCommand}>
         <MechanismPanel spec={spec} onSpec={changeSpec} paramCount={analysis.geo.layout.length} />
         <TargetEditorPanel
           target={target}
@@ -579,6 +653,7 @@ export default function App() {
           onExport={exportDesign}
         />
         <GeometryReport geo={analysis.geo} label={designLabel} />
+        </SectionGroup>
       </aside>
 
       <div className="canvas-wrap" ref={wrapRef}>
@@ -626,7 +701,12 @@ export default function App() {
         </div>
       </div>
 
-      <aside className="sidebar right">
+      <aside
+        className={`sidebar right${drawer === 'right' ? ' open' : ''}`}
+        aria-hidden={compact && drawer !== 'right'}
+      >
+        {compact && drawerHead(t('panels.resultsTitle'))}
+        <SectionGroup command={groupCommand}>
         <InspectorPanel
           selection={selection}
           geo={analysis.geo}
@@ -666,10 +746,36 @@ export default function App() {
           selection={selection}
           onSelect={setSelection}
         />
+        </SectionGroup>
       </aside>
+
+      {compact && drawer && (
+        <div className="drawer-backdrop" onClick={() => setDrawer(null)} aria-hidden="true" />
+      )}
 
       <div className="timeline">
         <div className="row">
+          {/* Only mounted in the compact layout. Hiding them with CSS would
+              leave them in the tab order and in the accessibility tree on a
+              desktop, where the panels they open are already on screen. */}
+          {compact && (
+            <div className="panel-toggles">
+              <button
+                className={drawer === 'left' ? 'active' : ''}
+                aria-expanded={drawer === 'left'}
+                onClick={() => setDrawer((d) => (d === 'left' ? null : 'left'))}
+              >
+                {t('panels.openDesign')}
+              </button>
+              <button
+                className={drawer === 'right' ? 'active' : ''}
+                aria-expanded={drawer === 'right'}
+                onClick={() => setDrawer((d) => (d === 'right' ? null : 'right'))}
+              >
+                {t('panels.openResults')}
+              </button>
+            </div>
+          )}
           <button
             className={`icon ${playing ? 'playing' : 'paused'}`}
             onClick={() => setPlaying((p) => !p)}

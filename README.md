@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 141 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (51 checks)
+npm test           # 155 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (61 checks)
 npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run deploy:dry # what a deploy would change, without changing it
 npm run deploy     # publish dist/ to SiteGround over FTPS
@@ -27,8 +27,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (141) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 51-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (155) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 61-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -80,6 +80,53 @@ The two are written independently rather than translated line by line — the
 same chapters in the same order, with the emphasis and the examples chosen for
 each language. A test asserts that both reach 5000 lines, so neither can drift
 into being the abridged one.
+
+## Phones and narrow windows
+
+The shell is a three-column grid — 336 px of design panels, the canvas, 300 px
+of results. On a 390 px phone that arithmetic leaves the canvas column with
+**zero** pixels and the document scrolling 588 px sideways, so the mechanism,
+which is the entire point of the page, could not be seen at all. Collapsing the
+panels one at a time did not help: the columns are sized in the grid, not by
+their contents.
+
+Below **820 px** the sidebars leave the grid and become drawers over the canvas,
+opened one at a time from the timeline bar.
+
+| | Desktop | Phone |
+|---|---|---|
+| Sidebars | two fixed columns | drawers, one open at a time |
+| Canvas | middle column | the whole middle row |
+| Design actions | in the header | in the design drawer (below 560 px) |
+| Route links | fixed | scroll horizontally, none dropped |
+| Panels | collapsible individually | individually, plus collapse/expand all |
+
+Nothing is removed — every panel is still there, one tap away, and one set of
+markup serves both layouts.
+
+Details that are easy to get wrong and are therefore pinned by tests:
+
+- **A closed drawer is out of the tab order**, not merely out of sight. It uses
+  `visibility: hidden`; an off-screen transform or `opacity: 0` would leave
+  about fifty controls focusable behind the canvas.
+- **The toggles are mounted only in the compact layout.** Rendered always and
+  hidden with CSS, they would stay in the tab order on a desktop, offering to
+  open panels that are already on screen.
+- **The breakpoint exists once in CSS and once in JavaScript**, and a test
+  asserts they are equal. Drift gives a band of widths where the toggles are
+  visible while the sidebars are still in the grid, or the reverse.
+- **Grid items need `min-width: 0`.** They default to `min-width: auto`, so the
+  header's intrinsic width alone stretched the page back to 416 px and took the
+  canvas with it.
+- **A fixed element parked past the right edge still counts** towards the
+  document's scrollable width, so the closed results drawer gave the page a
+  sideways scroll of its own. (The left drawer does not — overflow to the left
+  never creates scrollable area.)
+
+Touch already worked: the canvas sets `touch-action: none` and the controller
+listens for pointer events rather than mouse events. It had nothing to drag
+because the canvas had no width. A smoke check now dispatches real
+`pointerType: 'touch'` events and asserts the crank turns to 90°.
 
 ## Discoverability (SEO / AEO)
 
@@ -133,7 +180,7 @@ SITE_URL=https://example.com npm run build
 ```
 
 which also rewrites the origin baked into `index.html`. `tests/seo.test.ts`
-(22 of the 141 tests) runs the real generator into a temporary directory and
+(22 of the 155 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
