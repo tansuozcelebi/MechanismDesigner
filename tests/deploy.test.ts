@@ -130,6 +130,33 @@ describe('deploy script', () => {
     expect(DEPLOY_SCRIPT).toMatch(/client\.remove\(.*,\s*true\)/);
   });
 
+  it('resolves the remote target to an absolute path before writing', () => {
+    // The bug this pins: `ensureDir` with a relative path is relative to the
+    // *current* directory, and this script calls it once per upload directory.
+    // With a relative SITEGROUND_REMOTE_DIR each call resolved inside the last,
+    // so a deploy burrowed a level deeper every time — writing to
+    // public_html/assets/<target>/... while the real index.html sat untouched.
+    // Every upload reported success and the live site never changed.
+    expect(DEPLOY_SCRIPT).toMatch(/const remoteRoot = posix\.resolve\(loginDir \|\| '\/', config\.remoteDir\)/);
+  });
+
+  it('builds every remote path from the resolved root, never the raw setting', () => {
+    // One missed call site reintroduces the whole bug, so no remote operation
+    // may reach for config.remoteDir again.
+    const offenders = DEPLOY_SCRIPT.split('\n').filter(
+      (l) =>
+        /config\.remoteDir/.test(l) &&
+        /(ensureDir|uploadFrom|downloadTo|client\.remove|removeDir|posix\.join)/.test(l),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('refuses to prune anything outside the remote root', () => {
+    // Prune deletes on a live server. It must not be talked into `../..`.
+    expect(DEPLOY_SCRIPT).toMatch(/!target\.startsWith\(`\$\{remoteRoot\}\/`\)/);
+    expect(DEPLOY_SCRIPT).toMatch(/refusing to prune/);
+  });
+
   it('normalises paths to posix so Windows and Linux agree', () => {
     // The manifest keys are compared against remote paths. A deploy from a
     // Windows checkout must not produce `assets\index.js`.
