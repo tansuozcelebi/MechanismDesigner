@@ -27,6 +27,8 @@
  *   DEPLOY_DIR=dist           what to upload
  *   DEPLOY_FORCE=1            ignore the remote manifest and upload everything
  *   DRY_RUN=1                 connect, compare, report, change nothing
+ *   DEPLOY_LIST=1             connect and print the remote tree, upload nothing
+ *   DEPLOY_PRUNE=<rel path>   delete one directory under the remote root and stop
  */
 
 import { createHash } from 'node:crypto';
@@ -66,6 +68,8 @@ const config = {
   insecureTls: flag('FTP_TLS_INSECURE'),
   force: flag('DEPLOY_FORCE'),
   dryRun: flag('DRY_RUN'),
+  list: flag('DEPLOY_LIST'),
+  prune: process.env.DEPLOY_PRUNE ?? '',
 };
 
 if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
@@ -111,7 +115,7 @@ function inventory() {
 /* Remote manifest                                                     */
 /* ------------------------------------------------------------------ */
 
-async function readRemoteManifest(client) {
+async function readRemoteManifest(client, remoteRoot) {
   const chunks = [];
   const sink = new (await import('node:stream')).Writable({
     write(chunk, _enc, cb) {
@@ -120,7 +124,7 @@ async function readRemoteManifest(client) {
     },
   });
   try {
-    await client.downloadTo(sink, posix.join(config.remoteDir, MANIFEST));
+    await client.downloadTo(sink, posix.join(remoteRoot, MANIFEST));
   } catch {
     // No manifest: either the first deploy, or someone removed it. Treated as
     // "nothing known to be there", which uploads everything and deletes
@@ -198,7 +202,98 @@ async function main() {
   // over FTP still appears in it, and would then never be restored. DEPLOY_FORCE
   // is the way out of that, and the reason it is a flag rather than the default
   // is that the default deploy runs on every commit and should stay cheap.
-  const remote = config.force ? null : await readRemoteManifest(client);
+  /*
+   * Resolve the target to an absolute path before touching anything.
+   *
+   * `ensureDir` with a relative path is relative to the *current* working
+   * directory, and this script calls it once per directory it uploads into.
+   * Given a relative target, the second call therefore resolved inside the
+   * first, the third inside the second, and a deploy burrowed a level deeper
+   * every time — writing to public_html/assets/<target>/... while the real
+   * index.html sat untouched. Every upload "succeeded" and the site never
+   * changed.
+   *
+   * An absolute path makes `ensureDir` start from the root each time, so the
+   * script no longer depends on whether whoever set the secret typed a
+   * leading slash.
+   */
+  const loginDir = await client.pwd().catch(() => '/');
+  const remoteRoot = posix.resolve(loginDir || '/', config.remoteDir);
+  if (remoteRoot !== config.remoteDir) {
+    console.log(`  resolved target to ${remoteRoot} (login dir ${loginDir})`);
+  }
+
+  /*
+   * Remove one directory under the remote root, then stop.
+   *
+   * This exists to clear up after the relative-path bug above, which left
+   * nested copies of the site inside itself. They are not merely clutter: they
+   * are reachable over HTTP, so a crawler finds the same pages again under
+   * /<target>/<target>/... and the site competes with itself for its own
+   * rankings.
+   *
+   * Deliberately one named directory per run rather than anything clever. A
+   * deploy script that decides for itself what to delete on a live server is
+   * a script that will eventually delete the wrong thing.
+   */
+  if (config.prune) {
+    const rel = config.prune.replace(/^\/+|\/+$/g, '');
+    const target = posix.resolve(remoteRoot, rel);
+    if (!rel || rel === '.' || !target.startsWith(`${remoteRoot}/`)) {
+      console.error(`\n  refusing to prune ${config.prune}: it is not inside the remote root\n`);
+      client.close();
+      process.exit(1);
+    }
+    console.log(`\n  pruning ${target}`);
+    try {
+      await client.removeDir(target);
+      console.log('  removed');
+    } catch (err) {
+      console.error(`  could not remove it: ${err.message}`);
+      client.close();
+      process.exit(1);
+    }
+    client.close();
+    console.log('');
+    return;
+  }
+
+  /* Troubleshooting mode. The question it answers is "which directory does the
+     domain actually serve from", which matters because an upload to the wrong
+     one succeeds in every visible way and changes nothing anybody can see. An
+     index.html older than the deploy is the giveaway. */
+  if (config.list) {
+    const show = async (dir, depth) => {
+      let entries;
+      try {
+        entries = await client.list(dir);
+      } catch (err) {
+        console.log(`${'  '.repeat(depth)}${dir}  — ${err.message}`);
+        return;
+      }
+      for (const e of entries) {
+        if (e.name === '.' || e.name === '..') continue;
+        const path = posix.join(dir, e.name);
+        const when = e.rawModifiedAt ?? e.modifiedAt ?? '';
+        if (e.isDirectory) {
+          console.log(`${'  '.repeat(depth)}${path}/`);
+          if (depth < 3) await show(path, depth + 1);
+        } else if (/^(index\.html|\.htaccess|robots\.txt)$/.test(e.name)) {
+          console.log(`${'  '.repeat(depth)}${path}   ${e.size} bytes   ${when}`);
+        }
+      }
+    };
+    console.log('\n  remote tree (directories, plus index.html / .htaccess / robots.txt):\n');
+    for (const root of ['/', remoteRoot]) {
+      console.log(`  --- from ${root} ---`);
+      await show(root, 1);
+    }
+    client.close();
+    console.log('\n  listing complete — nothing was written\n');
+    return;
+  }
+
+  const remote = config.force ? null : await readRemoteManifest(client, remoteRoot);
   if (config.force) console.log('  DEPLOY_FORCE — ignoring the remote manifest');
   else if (remote === null) console.log('  no remote manifest — first full upload');
 
@@ -247,7 +342,7 @@ async function main() {
   let uploaded = 0;
   let bytes = 0;
   for (const [dir, rels] of byDir) {
-    const remotePath = dir === '.' ? config.remoteDir : posix.join(config.remoteDir, dir);
+    const remotePath = dir === '.' ? remoteRoot : posix.join(remoteRoot, dir);
     await client.ensureDir(remotePath);
     for (const rel of rels) {
       const file = local.get(rel);
@@ -264,7 +359,7 @@ async function main() {
   let deleted = 0;
   for (const rel of removed) {
     try {
-      await client.remove(posix.join(config.remoteDir, rel), true);
+      await client.remove(posix.join(remoteRoot, rel), true);
       deleted += 1;
       console.log(`    - ${rel}`);
     } catch (err) {
@@ -281,7 +376,7 @@ async function main() {
     siteUrl: process.env.SITE_URL ?? null,
     files: Object.fromEntries([...local].map(([rel, f]) => [rel, f.hash])),
   };
-  await client.ensureDir(config.remoteDir);
+  await client.ensureDir(remoteRoot);
   await client.uploadFrom(
     (await import('node:stream')).Readable.from([JSON.stringify(manifest, null, 2)]),
     MANIFEST,

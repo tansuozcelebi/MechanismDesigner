@@ -17,6 +17,12 @@ on:
         description: 'Commit, tag or branch to deploy'
         required: false
         default: 'main'
+      mode:
+        description: 'deploy, or inspect the remote tree without uploading'
+        required: false
+        default: 'deploy'
+        type: choice
+        options: [deploy, inspect]
 
 permissions:
   contents: read
@@ -126,7 +132,22 @@ jobs:
           fi
           echo "build output complete, origin is $SITE_URL"
 
+      # Answers "which directory does this domain actually serve from", which
+      # an upload cannot: writing to the wrong one succeeds in every visible
+      # way and changes nothing anybody can see.
+      - name: Inspect the remote tree
+        if: inputs.mode == 'inspect'
+        env:
+          SITEGROUND_FTP_HOST: ${{ secrets.SITEGROUND_FTP_HOST }}
+          SITEGROUND_FTP_USER: ${{ secrets.SITEGROUND_FTP_USER }}
+          SITEGROUND_FTP_PASSWORD: ${{ secrets.SITEGROUND_FTP_PASSWORD }}
+          SITEGROUND_FTP_PORT: ${{ secrets.SITEGROUND_FTP_PORT }}
+          SITEGROUND_REMOTE_DIR: ${{ secrets.SITEGROUND_REMOTE_DIR }}
+          DEPLOY_LIST: '1'
+        run: npm run deploy
+
       - name: Deploy over FTPS
+        if: inputs.mode != 'inspect'
         env:
           SITEGROUND_FTP_HOST: ${{ secrets.SITEGROUND_FTP_HOST }}
           SITEGROUND_FTP_USER: ${{ secrets.SITEGROUND_FTP_USER }}
@@ -142,6 +163,7 @@ jobs:
       # failure this catches — usually a remote directory that is not the one
       # the domain is served from.
       - name: Check the live site
+        if: inputs.mode != 'inspect'
         env:
           SITE_URL: ${{ vars.SITE_URL }}
         run: |
@@ -163,14 +185,55 @@ jobs:
             sleep "$wait"
           done
 
+          # Guessing at the cause in prose was not much help the first time this
+          # fired. Ask the server instead: the status code alone separates
+          # "blocked" from "wrong directory" from "stale cache".
+          echo
+          echo "=== diagnostics ==============================================="
+          for path in "/" "/robots.txt" "/en/theory/" "/index.html"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$SITE_URL$path" || echo "000")
+            echo "  $code  $SITE_URL$path"
+          done
+
+          echo
+          echo "--- response headers for / ---"
+          curl -sS -D - -o /dev/null --max-time 20 "$SITE_URL/" 2>&1 | head -25 || true
+
+          echo
+          echo "--- first 400 bytes of the body ---"
+          curl -sS --max-time 20 "$SITE_URL/" 2>&1 | head -c 400 || true
+          echo
+
+          echo
+          echo "--- as Googlebot ---"
+          gcode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+            -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
+            "$SITE_URL/" || echo "000")
+          echo "  $gcode"
+
           echo
           echo "The upload itself succeeded, but $SITE_URL/ is not serving $entry."
-          echo "In order of likelihood:"
-          echo "  1. SITEGROUND_REMOTE_DIR is not the directory this domain serves from."
-          echo "  2. SiteGround's dynamic cache is still holding the old page — flush it"
-          echo "     in Site Tools, or exclude the site root from caching."
-          echo "  3. SITE_URL does not resolve to this hosting account."
+          echo "Read the status codes above:"
+          echo "  403 / 503 with a challenge page  -> bot protection or a WAF is in the way."
+          echo "  404 everywhere                   -> SITEGROUND_REMOTE_DIR is not the"
+          echo "                                      directory this domain serves from."
+          echo "  200 but the old asset name       -> a cache is holding the old page;"
+          echo "                                      flush it in Site Tools."
+          echo "  000                              -> DNS does not resolve to this account."
           exit 1
+
+      # Push the changed URLs to Bing, Yandex, Seznam and Naver instead of
+      # waiting to be crawled. Runs only after the live check has confirmed the
+      # site is really serving this build — announcing a URL that 404s is worse
+      # than saying nothing.
+      #
+      # Google does not take part: it retired its sitemap ping in 2023 and
+      # accepts submissions only through Search Console.
+      - name: Tell the search engines
+        if: inputs.mode != 'inspect'
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: npm run indexnow
 
       - name: Summary
         if: always()

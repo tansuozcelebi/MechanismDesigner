@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && tsx scripts/seo.ts",
     "seo": "tsx scripts/seo.ts",
+    "indexnow": "tsx scripts/indexnow.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

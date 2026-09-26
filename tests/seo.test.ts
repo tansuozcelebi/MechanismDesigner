@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DEFAULT_SITE_URL,
+  INDEXNOW_KEY,
   LANGS,
   PAGES,
   SITE_URL,
@@ -246,6 +247,15 @@ describe('generated pages', () => {
         expect(pageHtml(page.id, lang)).toContain(`${abs('/')}${page[lang].appHash}`);
       }
     }
+  });
+
+  it('serves the IndexNow ownership file under its own key', () => {
+    // IndexNow proves ownership by the file's *name* matching the key that is
+    // submitted, and by its content matching too. Generated from one constant
+    // so the file and the submission cannot drift apart.
+    const key = readFileSync(join(OUT, `${INDEXNOW_KEY}.txt`), 'utf8').trim();
+    expect(key).toBe(INDEXNOW_KEY);
+    expect(INDEXNOW_KEY).toMatch(/^[a-f0-9]{8,128}$/);
   });
 
   it('does not redirect — the content must stay on the crawlable URL', () => {
