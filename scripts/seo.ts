@@ -20,6 +20,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import {
   AUTHOR,
+  INDEXNOW_KEY,
   LANGS,
   PAGES,
   REPO_URL,
@@ -503,6 +504,15 @@ ${alts}
 ).join('\n');
 
 written.push(write('sitemap.xml', `${SITEMAP_HEAD}\n${urls}\n</urlset>\n`));
+
+/* ---------------------------- IndexNow key -------------------------- */
+
+/*
+ * Ownership proof for IndexNow: the file's name is the key and so is its
+ * content. It is written here rather than dropped in public/ so that it cannot
+ * drift from the key the submission script sends — both read one constant.
+ */
+written.push(write(`${INDEXNOW_KEY}.txt`, INDEXNOW_KEY));
 
 /* ----------------------------- robots.txt --------------------------- */
 

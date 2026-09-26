@@ -195,5 +195,19 @@ export const AUTHOR = {
 
 export const REPO_URL = 'https://github.com/tansuozcelebi/MechanismDesigner';
 
+/**
+ * IndexNow key.
+ *
+ * IndexNow lets a site tell Bing, Yandex, Seznam and Naver that a URL changed
+ * instead of waiting to be crawled. Ownership is proved by serving this exact
+ * string at `/<key>.txt`, so the key is public by design — there is nothing to
+ * keep secret and it belongs in the repository rather than in a secret, where
+ * it would be invisible to the generator that has to write the file.
+ *
+ * Google does not participate: it retired its sitemap ping endpoint in 2023
+ * and takes submissions only through Search Console.
+ */
+export const INDEXNOW_KEY = '4721d342fa3af55a396b972fcbde50ca';
+
 export const LICENSE_NOTE =
   'Source available at ' + REPO_URL;
