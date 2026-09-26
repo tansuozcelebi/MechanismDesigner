@@ -17,6 +17,12 @@ on:
         description: 'Commit, tag or branch to deploy'
         required: false
         default: 'main'
+      mode:
+        description: 'deploy, or inspect the remote tree without uploading'
+        required: false
+        default: 'deploy'
+        type: choice
+        options: [deploy, inspect]
 
 permissions:
   contents: read
@@ -126,7 +132,22 @@ jobs:
           fi
           echo "build output complete, origin is $SITE_URL"
 
+      # Answers "which directory does this domain actually serve from", which
+      # an upload cannot: writing to the wrong one succeeds in every visible
+      # way and changes nothing anybody can see.
+      - name: Inspect the remote tree
+        if: inputs.mode == 'inspect'
+        env:
+          SITEGROUND_FTP_HOST: ${{ secrets.SITEGROUND_FTP_HOST }}
+          SITEGROUND_FTP_USER: ${{ secrets.SITEGROUND_FTP_USER }}
+          SITEGROUND_FTP_PASSWORD: ${{ secrets.SITEGROUND_FTP_PASSWORD }}
+          SITEGROUND_FTP_PORT: ${{ secrets.SITEGROUND_FTP_PORT }}
+          SITEGROUND_REMOTE_DIR: ${{ secrets.SITEGROUND_REMOTE_DIR }}
+          DEPLOY_LIST: '1'
+        run: npm run deploy
+
       - name: Deploy over FTPS
+        if: inputs.mode != 'inspect'
         env:
           SITEGROUND_FTP_HOST: ${{ secrets.SITEGROUND_FTP_HOST }}
           SITEGROUND_FTP_USER: ${{ secrets.SITEGROUND_FTP_USER }}
@@ -142,6 +163,7 @@ jobs:
       # failure this catches — usually a remote directory that is not the one
       # the domain is served from.
       - name: Check the live site
+        if: inputs.mode != 'inspect'
         env:
           SITE_URL: ${{ vars.SITE_URL }}
         run: |
@@ -208,6 +230,7 @@ jobs:
       # Google does not take part: it retired its sitemap ping in 2023 and
       # accepts submissions only through Search Console.
       - name: Tell the search engines
+        if: inputs.mode != 'inspect'
         env:
           SITE_URL: ${{ vars.SITE_URL }}
         run: npm run indexnow

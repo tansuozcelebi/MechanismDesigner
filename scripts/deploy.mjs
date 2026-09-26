@@ -27,6 +27,7 @@
  *   DEPLOY_DIR=dist           what to upload
  *   DEPLOY_FORCE=1            ignore the remote manifest and upload everything
  *   DRY_RUN=1                 connect, compare, report, change nothing
+ *   DEPLOY_LIST=1             connect and print the remote tree, upload nothing
  */
 
 import { createHash } from 'node:crypto';
@@ -66,6 +67,7 @@ const config = {
   insecureTls: flag('FTP_TLS_INSECURE'),
   force: flag('DEPLOY_FORCE'),
   dryRun: flag('DRY_RUN'),
+  list: flag('DEPLOY_LIST'),
 };
 
 if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
@@ -198,6 +200,41 @@ async function main() {
   // over FTP still appears in it, and would then never be restored. DEPLOY_FORCE
   // is the way out of that, and the reason it is a flag rather than the default
   // is that the default deploy runs on every commit and should stay cheap.
+  /* Troubleshooting mode. The question it answers is "which directory does the
+     domain actually serve from", which matters because an upload to the wrong
+     one succeeds in every visible way and changes nothing anybody can see. An
+     index.html older than the deploy is the giveaway. */
+  if (config.list) {
+    const show = async (dir, depth) => {
+      let entries;
+      try {
+        entries = await client.list(dir);
+      } catch (err) {
+        console.log(`${'  '.repeat(depth)}${dir}  — ${err.message}`);
+        return;
+      }
+      for (const e of entries) {
+        if (e.name === '.' || e.name === '..') continue;
+        const path = posix.join(dir, e.name);
+        const when = e.rawModifiedAt ?? e.modifiedAt ?? '';
+        if (e.isDirectory) {
+          console.log(`${'  '.repeat(depth)}${path}/`);
+          if (depth < 3) await show(path, depth + 1);
+        } else if (/^(index\.html|\.htaccess|robots\.txt)$/.test(e.name)) {
+          console.log(`${'  '.repeat(depth)}${path}   ${e.size} bytes   ${when}`);
+        }
+      }
+    };
+    console.log('\n  remote tree (directories, plus index.html / .htaccess / robots.txt):\n');
+    for (const root of ['/', config.remoteDir]) {
+      console.log(`  --- from ${root} ---`);
+      await show(root, 1);
+    }
+    client.close();
+    console.log('\n  listing complete — nothing was written\n');
+    return;
+  }
+
   const remote = config.force ? null : await readRemoteManifest(client);
   if (config.force) console.log('  DEPLOY_FORCE — ignoring the remote manifest');
   else if (remote === null) console.log('  no remote manifest — first full upload');
