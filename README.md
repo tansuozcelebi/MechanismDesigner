@@ -279,6 +279,37 @@ real `index.html` files, and a rewrite to `/index.html` would serve the empty
 app shell in place of `/en/theory/` — undoing the entire reason those pages
 exist. A test asserts the rule is absent.
 
+### Telling the search engines
+
+The build emits an IndexNow ownership key at `/<key>.txt` and the deploy
+submits its URLs to **Bing, Yandex, Seznam and Naver** once the live check has
+confirmed the build is really being served — announcing a URL that 404s is
+worse than saying nothing. The key is a plain constant in `src/seo/config.ts`,
+not a secret: ownership is proved by serving it publicly, and a secret would be
+invisible to the generator that writes the file.
+
+Google does not take part. It retired its sitemap ping endpoint in 2023 and
+accepts submissions only through Search Console.
+
+### Two failure modes worth knowing about
+
+**A relative `SITEGROUND_REMOTE_DIR`.** `ensureDir` resolves a relative path
+against the *current* directory, and the script calls it once per upload
+directory, so a relative target made each deploy burrow a level deeper —
+writing into `public_html/assets/<target>/…` while the real `index.html` sat
+untouched, reporting success every time. The target is now resolved against the
+login directory before anything is written. `DEPLOY_PRUNE=<path>` clears up
+nested copies left by that bug; they are reachable over HTTP, so they are
+duplicate content, not just clutter.
+
+**SiteGround's anti-bot.** It answers every request with `202` and an
+`sg-captcha: challenge` header, serving a meta-refresh to
+`/.well-known/sgcaptcha/` instead of the page — including to a Googlebot user
+agent. The same response carries **`x-robots-tag: noindex`**, so while it is on,
+every URL on the site tells search engines not to index it, whatever the HTML
+says. The live check names this case explicitly rather than leaving it in a list
+of guesses. It is switched off in Site Tools, not in this repository.
+
 ### What the tests hold
 
 `tests/deploy.test.ts` (20 tests) pins the parts that break silently:

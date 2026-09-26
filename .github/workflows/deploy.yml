@@ -213,6 +213,26 @@ jobs:
 
           echo
           echo "The upload itself succeeded, but $SITE_URL/ is not serving $entry."
+
+          # SiteGround's anti-bot answers every request with 202 and an
+          # `sg-captcha: challenge` header, serving a meta-refresh to
+          # /.well-known/sgcaptcha/ instead of the page. Worth naming rather
+          # than leaving in a list of guesses, because the same response also
+          # carries `x-robots-tag: noindex` — so for as long as it is on, every
+          # URL on the site tells search engines not to index it, whatever the
+          # HTML says.
+          if curl -sS -D - -o /dev/null --max-time 20 "$SITE_URL/" 2>/dev/null \
+             | grep -qi '^sg-captcha:'; then
+            echo
+            echo "CAUSE: SiteGround's anti-bot is serving a CAPTCHA challenge."
+            echo "  Evidence: 'sg-captcha: challenge' on every path, HTTP 202,"
+            echo "  and the challenge response sets 'x-robots-tag: noindex'."
+            echo "  The files are deployed; nothing can read them, crawlers included."
+            echo "  Turn the protection off (or allow-list crawlers) in Site Tools"
+            echo "  -> Security, then re-run this workflow."
+            exit 1
+          fi
+
           echo "Read the status codes above:"
           echo "  403 / 503 with a challenge page  -> bot protection or a WAF is in the way."
           echo "  404 everywhere                   -> SITEGROUND_REMOTE_DIR is not the"
