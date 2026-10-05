@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 155 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (61 checks)
+npm test           # 167 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (68 checks)
 npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run deploy:dry # what a deploy would change, without changing it
 npm run deploy     # publish dist/ to SiteGround over FTPS
@@ -27,8 +27,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (155) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 61-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (167) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 68-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -80,6 +80,53 @@ The two are written independently rather than translated line by line — the
 same chapters in the same order, with the emphasis and the examples chosen for
 each language. A test asserts that both reach 5000 lines, so neither can drift
 into being the abridged one.
+
+## Dockable panels
+
+Every panel can be moved between the two docks, hidden, and put back. Which
+panels matter depends entirely on what you are doing — someone tuning link
+lengths wants the design panels beside the inspector, someone reading optimiser
+output wants the results dock to itself — so the arrangement belongs to the
+reader and is remembered in `localStorage`.
+
+| | |
+|---|---|
+| Move | Drag a panel header onto a dock, or use the ← → buttons in its header |
+| Hide | The ✕ in the header; hidden panels are listed in a tray at the foot of the right dock |
+| Reset | Offered only once something has been moved |
+
+`DockSlot` wraps each panel and supplies a context that `Section` reads, so the
+controls appear in the panel's own header — **no panel component knows that
+docking exists**, and a docked panel looks exactly like an undocked one. Adding
+a panel means adding one row to the registry in `App.tsx`.
+
+The controls are `←` and `→` rather than `◀` `▶`: the triangles already mean
+*play* on the timeline, and one glyph should not mean two things. The smoke
+suite found that collision before a human would have — its play-button selector
+matched a dock control and moved a panel instead of starting playback.
+
+## The best-mechanisms table
+
+A finished optimiser run used to **replace** the table, so comparing an 8-bar
+result against a 10-bar one meant copying the numbers out before starting the
+second run, and a reload lost everything. Results now accumulate and survive a
+refresh.
+
+Every row states its **link count**, because the table holds designs of
+different sizes at once and the size is the first thing to know about a result.
+Every row also states where it came from — `shipped` for a design that came with
+the application, `this session` for one found in this browser. A number
+presented as an optimisation result has to come from a solver run, and the table
+is the one place where confusing a recorded result with a fresh one would be
+easy and invisible.
+
+Ranking puts mechanisms that complete a revolution above ones that do not,
+and orders by objective value within each group: a mechanism that cannot turn
+is not a better answer than one that can, whatever its score says.
+
+Only rows from a real run are persisted. The shipped ones are re-derived from
+source on every load, so a stale copy in a browser cannot misrepresent what the
+application currently claims to ship.
 
 ## Phones and narrow windows
 
@@ -180,7 +227,7 @@ SITE_URL=https://example.com npm run build
 ```
 
 which also rewrites the origin baked into `index.html`. `tests/seo.test.ts`
-(22 of the 155 tests) runs the real generator into a temporary directory and
+(23 of the 167 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
@@ -308,7 +355,10 @@ duplicate content, not just clutter.
 agent. The same response carries **`x-robots-tag: noindex`**, so while it is on,
 every URL on the site tells search engines not to index it, whatever the HTML
 says. The live check names this case explicitly rather than leaving it in a list
-of guesses. It is switched off in Site Tools, not in this repository.
+of guesses. It cannot be switched off from this repository, and it is not a
+Site Tools setting either — Security there offers only Backups, SSL Manager,
+HTTPS Enforce, Protected URLs, Blocked Traffic (IP addresses only) and Site
+Scanner. Only SiteGround support can disable the CAPTCHA or add an exemption.
 
 ### What the tests hold
 

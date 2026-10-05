@@ -6,6 +6,7 @@ import type { SolutionSummary, WorkerResponse } from '../workers/optimization.wo
 import type { OptimizerProgress } from '../synthesis/optimizer';
 import { useT } from '../i18n';
 import { Section, num } from './primitives';
+import type { SavedSolution } from '../app/solutionStore';
 
 /**
  * Synthesis control (brief §27, §28).  The worker keeps the render thread free,
@@ -21,7 +22,8 @@ export function OptimizerPanel({
   target,
   onSelect,
   onSolutions,
-  storedSolutions,
+  onClear,
+  saved,
   selectedIndex,
   source,
 }: {
@@ -29,7 +31,8 @@ export function OptimizerPanel({
   target: TargetCurve;
   onSelect: (s: SolutionSummary, index: number, source: 'stored' | 'live') => void;
   onSolutions: (s: SolutionSummary[]) => void;
-  storedSolutions: SolutionSummary[];
+  onClear: () => void;
+  saved: SavedSolution[];
   selectedIndex: number;
   source: 'stored' | 'live';
 }) {
@@ -219,34 +222,52 @@ export function OptimizerPanel({
         </div>
       </Section>
 
-      {storedSolutions.length > 0 && (
-        <Section title={t('opt.bestTitle', { n: storedSolutions.length })}>
+      {saved.length > 0 && (
+        <Section title={t('opt.bestTitle', { n: saved.length })}>
           <div className="note">
             {t(source === 'stored' ? 'opt.sourceStored' : 'opt.sourceLive', {
-              // The listed solutions carry their own spec: they may well be a
-              // different size from the mechanism currently on screen.
-              links: 2 + 2 * (storedSolutions[0]?.spec.dyads.length ?? spec.dyads.length),
+              // Rows carry their own size now, so this line is about the run
+              // that was last loaded rather than about the table.
+              links: 2 + 2 * spec.dyads.length,
               target: target.name,
             })}
           </div>
           <div className="solutions">
-            {storedSolutions.map((s, i) => (
+            {saved.map((r, i) => (
               <div
-                key={i}
+                key={`${r.links}-${r.solution.J}-${i}`}
                 className={`sol ${i === selectedIndex ? 'selected' : ''}`}
-                onClick={() => onSelect(s, i, source)}
+                onClick={() => onSelect(r.solution, i, r.origin === 'shipped' ? 'stored' : 'live')}
+                title={
+                  r.savedAt
+                    ? t('opt.foundAt', { when: new Date(r.savedAt).toLocaleString() })
+                    : t('opt.shippedWith')
+                }
               >
                 <span className="rank">#{i + 1}</span>
+                {/* The size is the first thing to know about a row: comparing
+                    an 8-bar result with a 10-bar one is the whole point of
+                    keeping them in the same table. */}
+                <span className="links">{t('opt.linkCount', { n: r.links })}</span>
                 <span>
-                  RMS {num(s.rms, 1)} mm · {num(s.width, 0)}×{num(s.height, 0)}
+                  RMS {num(r.solution.rms, 1)} mm · {num(r.solution.width, 0)}×
+                  {num(r.solution.height, 0)}
                 </span>
-                <span className={s.fullRotation ? 'good' : 'bad'}>{num(s.J, 3)}</span>
+                <span className={`origin ${r.origin}`}>
+                  {t(r.origin === 'shipped' ? 'opt.originShipped' : 'opt.originRun')}
+                </span>
+                <span className={r.solution.fullRotation ? 'good' : 'bad'}>
+                  {num(r.solution.J, 3)}
+                </span>
               </div>
             ))}
           </div>
-          {storedSolutions[selectedIndex] && (
-            <SolutionDetail s={storedSolutions[selectedIndex]} />
+          {saved.some((r) => r.origin === 'run') && (
+            <div className="row">
+              <button onClick={onClear}>{t('opt.clearRuns')}</button>
+            </div>
           )}
+          {saved[selectedIndex] && <SolutionDetail s={saved[selectedIndex].solution} />}
         </Section>
       )}
     </>
