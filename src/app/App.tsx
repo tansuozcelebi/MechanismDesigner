@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CONFIG } from '../mechanism/config';
 import { boundsFor, buildGeometry, poseFitsGeometry } from '../mechanism/mechanism';
 import { DEFAULT_SPEC, paramLayout, type MechanismSpec } from '../mechanism/spec';
@@ -49,6 +49,14 @@ import {
 import { HoverHint } from '../ui/HoverHint';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section, SectionGroup, type SectionGroupCommand } from '../ui/primitives';
+import { DockSlot, useDockLayout, type Dock } from '../ui/dock';
+import {
+  clearSaved,
+  loadSaved,
+  mergeSolutions,
+  persistSaved,
+  type SavedSolution,
+} from './solutionStore';
 import { SiteNav } from '../ui/SiteNav';
 import { useCompactLayout } from '../ui/useMediaQuery';
 import { useT } from '../i18n';
@@ -118,6 +126,14 @@ function startingParams(spec: MechanismSpec, seed: number): { params: number[]; 
 
 type DesignKind = 'optimized' | 'initial' | 'manual' | 'sampled';
 
+/** One dockable panel: a stable id, where it starts, and what it draws. */
+type PanelId =
+  | 'mechanism' | 'target' | 'motor' | 'display' | 'cycle' | 'targetFit'
+  | 'torque' | 'objective' | 'topology' | 'constraints' | 'design' | 'geometry'
+  | 'inspector' | 'live' | 'optimizer' | 'links';
+
+type PanelDef = { id: PanelId; def: Dock; node: ReactNode };
+
 export default function App() {
   const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -137,6 +153,7 @@ export default function App() {
    * the thing they are annotating.
    */
   const compact = useCompactLayout();
+  const dock = useDockLayout();
   const [drawer, setDrawer] = useState<'left' | 'right' | null>(null);
   const [groupCommand, setGroupCommand] = useState<SectionGroupCommand | null>(null);
 
@@ -177,7 +194,15 @@ export default function App() {
   );
   const designLabel = t(`app.label.${designKind}` as const);
 
-  const [solutions, setSolutions] = useState<SolutionSummary[]>(storedSummaries);
+  /**
+   * The best-mechanisms table: the designs shipped with the app, plus every
+   * optimiser result found in this browser. A run used to replace this list,
+   * so comparing an 8-bar result against a 10-bar one meant copying the
+   * numbers out first and a reload lost them.
+   */
+  const [solutions, setSolutions] = useState<SavedSolution[]>(() =>
+    mergeSolutions(mergeSolutions([], storedToSummaries(), 'shipped'), loadSaved().map((r) => r.solution), 'run'),
+  );
   const [solutionSource, setSolutionSource] = useState<'stored' | 'live'>('stored');
   const [selectedIndex, setSelectedIndex] = useState(storedSummaries.length ? 0 : -1);
 
@@ -449,9 +474,22 @@ export default function App() {
   );
 
   const handleSolutions = useCallback((s: SolutionSummary[]) => {
-    setSolutions(s);
+    setSolutions((prev) => {
+      const next = mergeSolutions(prev, s, 'run');
+      persistSaved(next);
+      return next;
+    });
     setSolutionSource('live');
+    // The run's own best is what the reader just waited for, so select it
+    // rather than whatever happens to top the merged table.
     setSelectedIndex(0);
+  }, []);
+
+  const clearSolutions = useCallback(() => {
+    clearSaved();
+    setSolutions(mergeSolutions([], storedToSummaries(), 'shipped'));
+    setSelectedIndex(0);
+    setSolutionSource('stored');
   }, []);
 
   const loadInitial = () => {
@@ -470,7 +508,6 @@ export default function App() {
       // to it should restore that design rather than resampling.
       if (next.dyads.length === OPTIMIZED_SPEC.dyads.length && storedSummaries.length) {
         selectSolution(storedSummaries[0], 0, 'stored');
-        setSolutions(storedSummaries);
         setSolutionSource('stored');
         return;
       }
@@ -533,6 +570,244 @@ export default function App() {
   const scaleBarMm = 50;
   const scaleBarPx = scaleBarMm / Math.max(1e-9, scaleInfo.mmPerPixel);
 
+  const panels: PanelDef[] = [
+    {
+      id: 'mechanism',
+      def: 'left',
+      node: (
+      <MechanismPanel spec={spec} onSpec={changeSpec} paramCount={analysis.geo.layout.length} />
+      ),
+    },
+    {
+      id: 'target',
+      def: 'left',
+      node: (
+      <TargetEditorPanel
+        target={target}
+        editing={targetEditing}
+        onEditing={(v) => {
+          setTargetEditing(v);
+          setTargetMessage(v ? t('targetEdit.frameNote') : null);
+        }}
+        onTarget={(c) => {
+          setTargetCurve(c);
+          setTargetMessage(null);
+        }}
+        onLoadHeart={() => {
+          setTargetCurve(heartTarget());
+          setTargetMessage(null);
+        }}
+        onLoadCircle={() => {
+          setTargetCurve(circleTarget());
+          setTargetMessage(null);
+        }}
+        onImport={importTargetFile}
+        onExport={exportTargetFile}
+        message={targetMessage}
+        actualWidth={resolvedTarget.width}
+        actualHeight={resolvedTarget.height}
+      />
+      ),
+    },
+    {
+      id: 'motor',
+      def: 'left',
+      node: (
+      <MotorPanel
+        rpm={rpm}
+        onRpm={setRpm}
+        gravityOn={gravityOn}
+        onGravity={setGravityOn}
+        playing={playing}
+      />
+      ),
+    },
+    {
+      id: 'display',
+      def: 'left',
+      node: (
+      <DisplayPanel
+        display={display}
+        onDisplay={setDisplay}
+        debugOptions={debugOptions}
+        onDebugOptions={setDebugOptions}
+        onClearTrail={() => viewerRef.current?.clearTrail()}
+        onFullPath={() => viewerRef.current?.showFullPath(analysis.sw)}
+        onFitView={() => viewerRef.current?.fitView()}
+      />
+      ),
+    },
+    {
+      id: 'cycle',
+      def: 'left',
+      node: (
+      <CyclePanel metrics={analysis.metrics} />
+      ),
+    },
+    {
+      id: 'targetFit',
+      def: 'left',
+      node: (
+      <TargetPanel
+        metrics={analysis.metrics}
+        requestedWidth={resolvedTarget.width}
+        requestedHeight={resolvedTarget.height}
+      />
+      ),
+    },
+    {
+      id: 'torque',
+      def: 'left',
+      node: (
+      <Section title={t('torque.title')}>
+        <TorqueChart samples={analysis.torqueProfile} cursorTheta={theta} />
+        <div className="note">
+          {t('torque.note')}
+          {!gravityOn && ` ${t('torque.gravityOff')}`}
+        </div>
+      </Section>
+      ),
+    },
+    {
+      id: 'objective',
+      def: 'left',
+      node: (
+      <ObjectivePanel metrics={analysis.metrics} />
+      ),
+    },
+    {
+      id: 'topology',
+      def: 'left',
+      node: (
+      <TopologyPanel topology={topo} />
+      ),
+    },
+    {
+      id: 'constraints',
+      def: 'left',
+      node: (
+      <ConstraintsPanel onChange={bumpConfig} />
+      ),
+    },
+    {
+      id: 'design',
+      def: 'left',
+      node: (
+      <DesignPanel
+        geo={analysis.geo}
+        label={designLabel}
+        onParam={setParam}
+        onExport={exportDesign}
+      />
+      ),
+    },
+    {
+      id: 'geometry',
+      def: 'left',
+      node: (
+      <GeometryReport geo={analysis.geo} label={designLabel} />
+      ),
+    },
+    {
+      id: 'inspector',
+      def: 'right',
+      node: (
+      <InspectorPanel
+        selection={selection}
+        geo={analysis.geo}
+        pose={pose}
+        params={params}
+        onParam={setParam}
+        layerOf={analysis.metrics?.layerOf}
+      />
+      ),
+    },
+    {
+      id: 'live',
+      def: 'right',
+      node: (
+      <LivePanel
+        pose={pose}
+        theta={theta}
+        rpm={rpm}
+        ledKin={instant.ledKin}
+        gravityTau={instant.tau}
+        torque={instant.torque}
+        collisionCount={viewerState?.collisionCount ?? 0}
+        minMemberDistance={viewerState?.minMemberDistance ?? Infinity}
+        solverFailed={viewerState?.solverFailed ?? false}
+        failureReason={viewerState?.failureReason ?? null}
+        assemblyJump={viewerState?.assemblyJump ?? false}
+        metrics={analysis.metrics}
+      />
+      ),
+    },
+    {
+      id: 'optimizer',
+      def: 'right',
+      node: (
+      <OptimizerPanel
+        spec={spec}
+        target={target}
+        onSelect={selectSolution}
+        onSolutions={handleSolutions}
+        onClear={clearSolutions}
+        saved={solutions}
+        selectedIndex={selectedIndex}
+        source={solutionSource}
+      />
+      ),
+    },
+    {
+      id: 'links',
+      def: 'right',
+      node: (
+      <LinkTable
+        geo={analysis.geo}
+        pose={pose}
+        collidingLinks={collidingLinks}
+        layerOf={analysis.metrics?.layerOf}
+        selection={selection}
+        onSelect={setSelection}
+      />
+      ),
+    },
+  ];
+
+  /**
+   * Draw one dock.
+   *
+   * Every panel is wrapped in a `DockSlot`, which is what makes the dock
+   * controls appear in its section header — no panel component knows that
+   * docking exists, and an undocked panel looks exactly like a docked one.
+   */
+  const renderDock = (where: Dock): ReactNode =>
+    panels
+      .filter((p) => dock.dockOf(p.id, p.def) === where)
+      .map((p) => (
+        <DockSlot key={p.id} id={p.id} dock={where} move={dock.move}>
+          {p.node}
+        </DockSlot>
+      ));
+
+  const hiddenPanels = panels.filter((p) => dock.dockOf(p.id, p.def) === 'hidden');
+
+  /** Accept a panel dragged onto a dock. */
+  const dropHandlers = (where: Dock) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (e.dataTransfer.types.includes('text/kreamet-panel')) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }
+    },
+    onDrop: (e: React.DragEvent) => {
+      const id = e.dataTransfer.getData('text/kreamet-panel');
+      if (!id) return;
+      e.preventDefault();
+      dock.move(id, where);
+    },
+  });
+
   /** Drawer header: what it is, collapse-all, and a way out. */
   const drawerHead = (title: string) => (
     <div className="drawer-head">
@@ -587,73 +862,9 @@ export default function App() {
             <button onClick={exportDesign}>{t('app.export')}</button>
           </div>
         )}
-        <SectionGroup command={groupCommand}>
-        <MechanismPanel spec={spec} onSpec={changeSpec} paramCount={analysis.geo.layout.length} />
-        <TargetEditorPanel
-          target={target}
-          editing={targetEditing}
-          onEditing={(v) => {
-            setTargetEditing(v);
-            setTargetMessage(v ? t('targetEdit.frameNote') : null);
-          }}
-          onTarget={(c) => {
-            setTargetCurve(c);
-            setTargetMessage(null);
-          }}
-          onLoadHeart={() => {
-            setTargetCurve(heartTarget());
-            setTargetMessage(null);
-          }}
-          onLoadCircle={() => {
-            setTargetCurve(circleTarget());
-            setTargetMessage(null);
-          }}
-          onImport={importTargetFile}
-          onExport={exportTargetFile}
-          message={targetMessage}
-          actualWidth={resolvedTarget.width}
-          actualHeight={resolvedTarget.height}
-        />
-        <MotorPanel
-          rpm={rpm}
-          onRpm={setRpm}
-          gravityOn={gravityOn}
-          onGravity={setGravityOn}
-          playing={playing}
-        />
-        <DisplayPanel
-          display={display}
-          onDisplay={setDisplay}
-          debugOptions={debugOptions}
-          onDebugOptions={setDebugOptions}
-          onClearTrail={() => viewerRef.current?.clearTrail()}
-          onFullPath={() => viewerRef.current?.showFullPath(analysis.sw)}
-          onFitView={() => viewerRef.current?.fitView()}
-        />
-        <CyclePanel metrics={analysis.metrics} />
-        <TargetPanel
-          metrics={analysis.metrics}
-          requestedWidth={resolvedTarget.width}
-          requestedHeight={resolvedTarget.height}
-        />
-        <Section title={t('torque.title')}>
-          <TorqueChart samples={analysis.torqueProfile} cursorTheta={theta} />
-          <div className="note">
-            {t('torque.note')}
-            {!gravityOn && ` ${t('torque.gravityOff')}`}
-          </div>
-        </Section>
-        <ObjectivePanel metrics={analysis.metrics} />
-        <TopologyPanel topology={topo} />
-        <ConstraintsPanel onChange={bumpConfig} />
-        <DesignPanel
-          geo={analysis.geo}
-          label={designLabel}
-          onParam={setParam}
-          onExport={exportDesign}
-        />
-        <GeometryReport geo={analysis.geo} label={designLabel} />
-        </SectionGroup>
+        <div className="dock" {...dropHandlers('left')}>
+          <SectionGroup command={groupCommand}>{renderDock('left')}</SectionGroup>
+        </div>
       </aside>
 
       <div className="canvas-wrap" ref={wrapRef}>
@@ -706,47 +917,31 @@ export default function App() {
         aria-hidden={compact && drawer !== 'right'}
       >
         {compact && drawerHead(t('panels.resultsTitle'))}
-        <SectionGroup command={groupCommand}>
-        <InspectorPanel
-          selection={selection}
-          geo={analysis.geo}
-          pose={pose}
-          params={params}
-          onParam={setParam}
-          layerOf={analysis.metrics?.layerOf}
-        />
-        <LivePanel
-          pose={pose}
-          theta={theta}
-          rpm={rpm}
-          ledKin={instant.ledKin}
-          gravityTau={instant.tau}
-          torque={instant.torque}
-          collisionCount={viewerState?.collisionCount ?? 0}
-          minMemberDistance={viewerState?.minMemberDistance ?? Infinity}
-          solverFailed={viewerState?.solverFailed ?? false}
-          failureReason={viewerState?.failureReason ?? null}
-          assemblyJump={viewerState?.assemblyJump ?? false}
-          metrics={analysis.metrics}
-        />
-        <OptimizerPanel
-          spec={spec}
-          target={target}
-          onSelect={selectSolution}
-          onSolutions={handleSolutions}
-          storedSolutions={solutions}
-          selectedIndex={selectedIndex}
-          source={solutionSource}
-        />
-        <LinkTable
-          geo={analysis.geo}
-          pose={pose}
-          collidingLinks={collidingLinks}
-          layerOf={analysis.metrics?.layerOf}
-          selection={selection}
-          onSelect={setSelection}
-        />
-        </SectionGroup>
+        <div className="dock" {...dropHandlers('right')}>
+          <SectionGroup command={groupCommand}>{renderDock('right')}</SectionGroup>
+          {/* Hidden panels have to be reachable from somewhere, or hiding one
+              is a one-way door. This sits at the end of the right dock, which
+              is where it is least in the way. */}
+          {(hiddenPanels.length > 0 || dock.customised) && (
+            <div className="dock-tray">
+              {hiddenPanels.length > 0 && (
+                <>
+                  <strong>{t('dock.hidden')}</strong>
+                  {hiddenPanels.map((p) => (
+                    <button key={p.id} onClick={() => dock.move(p.id, p.def)}>
+                      {t(`panelName.${p.id}`)} ↩
+                    </button>
+                  ))}
+                </>
+              )}
+              {dock.customised && (
+                <button className="dock-reset" onClick={dock.reset}>
+                  {t('dock.reset')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </aside>
 
       {compact && drawer && (

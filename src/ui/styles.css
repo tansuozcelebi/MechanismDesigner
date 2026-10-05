@@ -1614,3 +1614,116 @@ ul.checks li {
     text-align: right;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Dockable panels                                                     */
+/* ------------------------------------------------------------------ */
+
+.dock {
+  min-height: 100%;
+}
+
+/* Only while something is being dragged, so the docks do not glow at rest. */
+.dock.drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+
+.dock-controls {
+  display: flex;
+  gap: 2px;
+  margin-left: 6px;
+  /* Revealed on hover or focus: sixteen panels each showing three buttons at
+     all times is more chrome than content. They stay in the tab order. */
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.section:hover .dock-controls,
+.section:focus-within .dock-controls {
+  opacity: 1;
+}
+
+.dock-controls button {
+  padding: 1px 5px;
+  font-size: 10px;
+  line-height: 1.4;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.dock-controls button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.dock-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.dock-tray strong {
+  width: 100%;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.dock-tray button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.dock-tray .dock-reset {
+  margin-left: auto;
+}
+
+/* A panel being dragged. */
+.section header[draggable='true'] {
+  cursor: grab;
+}
+
+.section header[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* Touch has no drag-and-drop here, so the buttons are the whole mechanism and
+   must not be hover-gated. */
+@media (hover: none) {
+  .dock-controls {
+    opacity: 1;
+  }
+}
+
+/* Best-mechanisms rows: size and provenance alongside the score. */
+.sol .links {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.sol .origin {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* A design found in this browser is marked apart from one that shipped with
+   the application: the table is the one place where confusing a recorded
+   result with a fresh one would be easy and invisible. */
+.sol .origin.run {
+  border-color: var(--accent);
+  color: var(--accent);
+}

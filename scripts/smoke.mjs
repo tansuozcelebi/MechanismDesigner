@@ -551,6 +551,77 @@ const navErrors = errors.filter((e) => !e.includes('favicon'));
 check('navigating between pages raises no errors', navErrors.length === 0, navErrors.slice(0, 2).join('; '));
 
 /* ------------------------------------------------------------------ */
+/* Dockable panels                                                     */
+/* ------------------------------------------------------------------ */
+
+const inDock = (side) => page.locator(`.sidebar.${side} .section`).count();
+const leftStart = await inDock('left');
+const rightStart = await inDock('right');
+
+const mechSection = page.locator('.section:has(h2:text-is("Mechanism"))').first();
+await mechSection.hover();
+await mechSection.locator('.dock-controls button[title="Move to the right dock"]').click();
+await page.waitForTimeout(400);
+check(
+  'a panel moves to the other dock',
+  (await inDock('left')) === leftStart - 1 &&
+    (await page.locator('.sidebar.right .section:has(h2:text-is("Mechanism"))').count()) === 1,
+  `${leftStart}/${rightStart} -> ${await inDock('left')}/${await inDock('right')}`,
+);
+
+// The arrangement is the reader's, so it has to survive a reload.
+const storedLayout = await page.evaluate(() => localStorage.getItem('kreamet.dock'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(SETTLE);
+check(
+  'the layout is remembered',
+  (await page.locator('.sidebar.right .section:has(h2:text-is("Mechanism"))').count()) === 1,
+  storedLayout,
+);
+
+// Hiding a panel must not be a one-way door.
+const moved = page.locator('.sidebar.right .section:has(h2:text-is("Mechanism"))').first();
+await moved.hover();
+await moved.locator('.dock-controls button[title="Hide this panel"]').click();
+await page.waitForTimeout(300);
+const trayCount = await page.locator('.dock-tray button').count();
+check('a hidden panel is offered back in the tray', trayCount > 0, `${trayCount} tray button(s)`);
+
+await page.locator('.dock-tray button', { hasText: 'Mechanism' }).first().click();
+await page.waitForTimeout(300);
+check(
+  'a hidden panel comes back where it was',
+  (await page.locator('.section:has(h2:text-is("Mechanism"))').count()) === 1,
+);
+
+await page.locator('.dock-reset').click();
+await page.waitForTimeout(300);
+check(
+  'reset restores the default arrangement',
+  (await inDock('left')) === leftStart && (await inDock('right')) === rightStart,
+  `${await inDock('left')}/${await inDock('right')}`,
+);
+
+/* ------------------------------------------------------------------ */
+/* Best-mechanisms table                                               */
+/* ------------------------------------------------------------------ */
+
+// The size of a design is the first thing to know about a row: the table holds
+// results from different mechanism sizes at once, and comparing them is the
+// reason it accumulates rather than being replaced by each run.
+const firstRow = await page.locator('.sol').first().innerText();
+check(
+  'every result row states its link count',
+  /\d+ links/.test(firstRow),
+  firstRow.replace(/\n/g, ' | '),
+);
+check(
+  'every result row states where it came from',
+  (await page.locator('.sol .origin').count()) === (await page.locator('.sol').count()),
+  `${await page.locator('.sol .origin').count()} of ${await page.locator('.sol').count()}`,
+);
+
+/* ------------------------------------------------------------------ */
 /* Phone layout                                                        */
 /* ------------------------------------------------------------------ */
 

@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useDockSlot } from './dock';
+import { useT } from '../i18n';
 
 /**
  * Lets a container open or close every `Section` inside it at once.
@@ -35,6 +37,7 @@ export function Section({
   right?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const slot = useDockSlot();
   const group = useContext(SectionGroupContext);
   const seen = useRef(group?.stamp ?? 0);
 
@@ -51,6 +54,14 @@ export function Section({
         role="button"
         tabIndex={0}
         aria-expanded={open}
+        // Dragging the header is the quick way to move a panel; the buttons
+        // below do the same thing for anyone not using a pointer.
+        draggable={slot !== null}
+        onDragStart={(e) => {
+          if (!slot) return;
+          e.dataTransfer.setData('text/kreamet-panel', slot.id);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -61,9 +72,44 @@ export function Section({
         <span className={`chev ${open ? 'open' : ''}`}>▶</span>
         <h2>{title}</h2>
         {right}
+        {slot && <DockControls slot={slot} />}
       </header>
       {open && <div className="body">{children}</div>}
     </div>
+  );
+}
+
+/**
+ * Move-this-panel controls, shown in a section header when the panel is inside
+ * a `DockSlot`. Clicks are stopped so that reaching for a control does not also
+ * collapse the panel underneath it.
+ */
+function DockControls({ slot }: { slot: NonNullable<ReturnType<typeof useDockSlot>> }) {
+  const t = useT();
+  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
+  return (
+    // Arrows rather than ◀ ▶ triangles: those already mean "play" on the
+    // timeline in this app, and one glyph should not mean two things. The
+    // smoke suite found the collision — its play-button selector matched a
+    // dock control and moved a panel instead of starting playback.
+    <span className="dock-controls" onClick={(e) => e.stopPropagation()}>
+      {slot.dock !== 'left' && (
+        <button title={t('dock.toLeft')} aria-label={t('dock.toLeft')} onClick={stop(() => slot.move('left'))}>
+          ←
+        </button>
+      )}
+      {slot.dock !== 'right' && (
+        <button title={t('dock.toRight')} aria-label={t('dock.toRight')} onClick={stop(() => slot.move('right'))}>
+          →
+        </button>
+      )}
+      <button title={t('dock.hide')} aria-label={t('dock.hide')} onClick={stop(() => slot.move('hidden'))}>
+        ✕
+      </button>
+    </span>
   );
 }
 
