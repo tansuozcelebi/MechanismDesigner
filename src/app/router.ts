@@ -8,8 +8,20 @@ import { useEffect, useState } from 'react';
  * History API needs server-side rewrites that will not exist. A hash route needs
  * none of that and still gives every page a real, linkable URL.
  */
-export const ROUTES = ['designer', 'about', 'theory'] as const;
+export const ROUTES = ['designer', 'optimizer', 'runner', 'favorites', 'about', 'theory'] as const;
 export type Route = (typeof ROUTES)[number];
+
+/**
+ * The routes that are views of the one interactive workbench rather than
+ * pages of their own. They share a single mounted `App`, so moving between
+ * them keeps the mechanism, the playback and the optimiser state; what
+ * changes is which panels are on screen and where.
+ */
+export const WORKSPACES = ['designer', 'optimizer', 'runner'] as const;
+export type Workspace = (typeof WORKSPACES)[number];
+
+export const isWorkspace = (r: Route): r is Workspace =>
+  (WORKSPACES as readonly string[]).includes(r);
 
 const isRoute = (v: string): v is Route => (ROUTES as readonly string[]).includes(v);
 

@@ -622,6 +622,99 @@ check(
 );
 
 /* ------------------------------------------------------------------ */
+/* Panel layout menu                                                   */
+/* ------------------------------------------------------------------ */
+
+// One menu controls every panel: hidden ones have no header to click, so this
+// is the only way back to them that does not depend on finding the tray.
+await page.locator('.panelmenu-toggle').click();
+await page.waitForTimeout(200);
+const menuRows = await page.locator('.panelmenu-table tbody tr').count();
+// Rows, not sections: one panel can hold more than one section.
+const shownCount = await page.locator('.panelmenu-toggle .dim').innerText();
+check(
+  'the panel menu lists every panel',
+  menuRows >= 16 && shownCount === `${menuRows}/${menuRows}`,
+  `${menuRows} rows, ${shownCount} shown`,
+);
+
+await page.locator('.panelmenu-actions button:has-text("Hide all")').click();
+await page.waitForTimeout(250);
+check('hide all empties both docks', (await inDock('left')) + (await inDock('right')) === 0);
+
+await page.locator('.panelmenu-actions button:has-text("Show all")').click();
+await page.waitForTimeout(250);
+check(
+  'show all brings every panel back to its own dock',
+  (await inDock('left')) === leftStart && (await inDock('right')) === rightStart,
+  `${await inDock('left')}/${await inDock('right')}`,
+);
+
+await page.locator('.panelmenu-actions button:has-text("Pin all in place")').click();
+await page.waitForTimeout(250);
+check(
+  'a pinned panel loses its drag handle and dock buttons',
+  (await page.locator('.dock-controls').count()) === 0 &&
+    (await page.locator('.section header[draggable="true"]').count()) === 0,
+);
+await page.locator('.panelmenu-actions button:has-text("Make all dockable")').click();
+await page.waitForTimeout(250);
+check('make all dockable restores the controls', (await page.locator('.dock-controls').count()) > 0);
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(150);
+check('Escape closes the panel menu', (await page.locator('.panelmenu-pop').count()) === 0);
+await page.evaluate(() => window.localStorage.removeItem('kreamet.dock'));
+
+/* ------------------------------------------------------------------ */
+/* Optimiser, Runner and favourites                                    */
+/* ------------------------------------------------------------------ */
+
+const badgeBefore = await page.locator('.sitenav-actions .badge').innerText();
+await page.click('.sitenav a:has-text("Optimiser")');
+await page.waitForTimeout(500);
+check(
+  'the optimiser view puts the search in front',
+  (await page.locator('.sidebar .section:has(h2:has-text("Optimi"))').count()) > 0 &&
+    (await inDock('left')) + (await inDock('right')) < leftStart + rightStart,
+  `${await inDock('left')}/${await inDock('right')}`,
+);
+check(
+  'switching view keeps the mechanism',
+  (await page.locator('.sitenav-actions .badge').innerText()) === badgeBefore,
+);
+
+await page.click('.sitenav a:has-text("Runner")');
+await page.waitForTimeout(500);
+check('arriving in the runner starts the motor', (await page.locator('.timeline .icon.playing').count()) === 1);
+check('each view has its own title', (await page.title()).startsWith('Runner'), await page.title());
+
+await page.locator('.sitenav-actions .star').click();
+await page.waitForTimeout(200);
+check('the star saves the design', (await page.locator('.sitenav-actions .star.on').count()) === 1);
+
+await page.click('.sitenav a:has-text("Favourite Mechanisms")');
+await page.waitForTimeout(800);
+check('the favourite is listed', (await page.locator('.favcard').count()) === 1);
+const frameBefore = await page.locator('.favcard .runner-controls .mono').innerText();
+await page.locator('.favcard .runner-controls button').click();
+await page.waitForTimeout(700);
+const frameAfter = await page.locator('.favcard .runner-controls .mono').innerText();
+check('a favourite runs on its own card', frameBefore !== frameAfter, `${frameBefore} -> ${frameAfter}`);
+
+await page.locator('.favcard a:has-text("Open in Runner")').click();
+await page.waitForTimeout(800);
+check(
+  'a favourite opens in the runner by link',
+  /#\/runner\/f[a-z0-9]{8}$/.test(page.url()) &&
+    (await page.locator('.sitenav-actions .badge').innerText()) === 'FAVOURITE',
+  page.url(),
+);
+await page.evaluate(() => window.localStorage.removeItem('kreamet.favorites'));
+await page.click('.sitenav a:has-text("Designer")');
+await page.waitForTimeout(400);
+
+/* ------------------------------------------------------------------ */
 /* Phone layout                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -771,6 +864,13 @@ check(
   'a touch drag turns the crank',
   Math.abs(touchTheta - 90) < 3,
   `${touchTheta.toFixed(2)}° (expect 90°)`,
+);
+
+const langBox = await phone.locator('.langswitch').boundingBox();
+check(
+  'the language switch is usable on a phone',
+  !!langBox && langBox.width > 40 && langBox.x + langBox.width <= 390,
+  JSON.stringify(langBox),
 );
 
 check('the phone layout raises no errors', phoneErrors.length === 0, phoneErrors.slice(0, 2).join('; '));

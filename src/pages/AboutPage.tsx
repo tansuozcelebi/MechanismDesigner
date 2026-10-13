@@ -25,6 +25,9 @@ export default function AboutPage() {
     <div className="page">
       <div className="page-inner">
         <header className="hero">
+          {/* The logo is the visible title; the h1 gives the page an outline
+              and screen readers a name for it. */}
+          <h1 className="sr-only">{t('about.heading')}</h1>
           <img className="herologo" src={LOGO_SRC} alt={APP_NAME} />
           <div className="tagline">{t('about.tagline')}</div>
           <p className="lede">{t('about.lede')}</p>

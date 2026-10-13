@@ -78,6 +78,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+          # Full history: the sitemap's <lastmod> and the articles' dateModified
+          # come from each page's last commit (scripts/seo.ts). A shallow clone
+          # would stamp every page with the deployed commit's date.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -113,10 +117,17 @@ jobs:
             dist/sitemap.xml \
             dist/llms.txt \
             dist/llms-full.txt \
+            dist/og-image.png \
             dist/tr/index.html \
+            dist/tr/optimizasyon/index.html \
+            dist/tr/calistirici/index.html \
+            dist/tr/favori-mekanizmalar/index.html \
             dist/tr/hakkinda/index.html \
             dist/tr/mekanizma-teknigi/index.html \
             dist/en/index.html \
+            dist/en/optimizer/index.html \
+            dist/en/runner/index.html \
+            dist/en/favorites/index.html \
             dist/en/about/index.html \
             dist/en/theory/index.html
           do

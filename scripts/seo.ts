@@ -16,12 +16,14 @@
  * They are NOT redirects. A redirect would hand the crawler back to the same
  * empty shell and throw away the only thing worth indexing.
  */
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import {
   AUTHOR,
   INDEXNOW_KEY,
   LANGS,
+  OG_IMAGE,
   PAGES,
   REPO_URL,
   DEFAULT_SITE_URL,
@@ -30,8 +32,17 @@ import {
   pageById,
   type Lang,
   type Page,
+  type PageId,
   type PageMeta,
 } from '../src/seo/config';
+import {
+  FAVORITES_CONTENT,
+  HOME_FAQ,
+  OPTIMIZER_CONTENT,
+  RUNNER_CONTENT,
+  type FeatureContent,
+  type QA,
+} from '../src/content/workspaces';
 import {
   blocksToHtml,
   escapeHtml,
@@ -66,6 +77,40 @@ const readDoc = (lang: Lang) =>
 
 const L = (b: Bilingual, lang: Lang) => b[lang];
 const today = new Date().toISOString().slice(0, 10);
+
+/**
+ * When a page's content last changed, from git.
+ *
+ * The build date is not that: stamping every URL with "today" on every deploy
+ * tells crawlers that everything changed every time, and Google documents that
+ * it stops trusting `lastmod` from a site whose values are not accurate. The
+ * commit date of the files a page is generated from is the honest figure.
+ * Falls back to the build date only where there is no git history at all.
+ */
+function lastModified(files: string[]): string {
+  try {
+    const out = execFileSync('git', ['log', '-1', '--format=%cs', '--', ...files], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(out) ? out : today;
+  } catch {
+    return today;
+  }
+}
+
+/** The source files each page is generated from. */
+const SOURCES: Record<PageId, (lang: Lang) => string[]> = {
+  home: () => ['src/content/about.ts', 'src/content/workspaces.ts', 'src/seo/config.ts'],
+  optimizer: () => ['src/content/workspaces.ts', 'src/seo/config.ts'],
+  runner: () => ['src/content/workspaces.ts', 'src/seo/config.ts'],
+  favorites: () => ['src/content/workspaces.ts', 'src/seo/config.ts'],
+  about: () => ['src/content/about.ts', 'src/seo/config.ts'],
+  theory: (lang) => [`src/content/theory.${lang}.md`],
+};
+
+const modifiedOf = (id: PageId, lang: Lang): string => lastModified(SOURCES[id](lang));
 
 /* ------------------------------------------------------------------ */
 /* Page shell                                                          */
@@ -132,8 +177,13 @@ function shell(opts: {
 }): string {
   const { lang, meta, alternates, jsonld, body } = opts;
   const canonical = abs(meta.path);
+  // Short labels, matching the application's own navigation, rather than the
+  // full headings: six long headings in a row are unreadable as navigation.
   const nav = PAGES.map(
-    (p) => `<a href="${escapeHtml(abs(p[lang].path))}">${escapeHtml(p[lang].heading)}</a>`,
+    (p) =>
+      `<a href="${escapeHtml(abs(p[lang].path))}"${
+        p[lang].path === meta.path ? ' aria-current="page"' : ''
+      }>${escapeHtml(p[lang].nav)}</a>`,
   ).join('');
   const langLinks = alternates
     .map(
@@ -165,14 +215,20 @@ ${alternates
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="KREAMET">
 <meta property="og:locale" content="${lang === 'tr' ? 'tr_TR' : 'en_US'}">
+<meta property="og:locale:alternate" content="${lang === 'tr' ? 'en_US' : 'tr_TR'}">
 <meta property="og:title" content="${escapeHtml(meta.title)}">
 <meta property="og:description" content="${escapeHtml(meta.description)}">
 <meta property="og:url" content="${escapeHtml(canonical)}">
-<meta property="og:image" content="${escapeHtml(abs('/kreamet-logo.svg'))}">
+<meta property="og:image" content="${escapeHtml(abs(OG_IMAGE.path))}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="${OG_IMAGE.width}">
+<meta property="og:image:height" content="${OG_IMAGE.height}">
+<meta property="og:image:alt" content="${escapeHtml(meta.heading)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(meta.title)}">
 <meta name="twitter:description" content="${escapeHtml(meta.description)}">
-<meta name="twitter:image" content="${escapeHtml(abs('/kreamet-logo.svg'))}">
+<meta name="twitter:image" content="${escapeHtml(abs(OG_IMAGE.path))}">
+<meta name="twitter:image:alt" content="${escapeHtml(meta.heading)}">
 <style>${PAGE_CSS}</style>
 ${jsonld
   .map(
@@ -184,7 +240,7 @@ ${jsonld
 <body>
 <header class="top">
   <a href="${escapeHtml(abs('/'))}"><img src="${escapeHtml(abs('/kreamet-logo.svg'))}" alt="KREAMET" width="252" height="58"></a>
-  <nav>${nav}</nav>
+  <nav aria-label="${lang === 'tr' ? 'Ana gezinme' : 'Main navigation'}">${nav}</nav>
   <span class="lang">${langLinks}</span>
 </header>
 <main class="wrap">
@@ -292,10 +348,41 @@ const articleLd = (lang: Lang, page: Page, wordCount: number, sections: string[]
   mainEntityOfPage: { '@type': 'WebPage', '@id': abs(page[lang].path) },
   author: personLd(),
   wordCount,
-  dateModified: today,
+  dateModified: modifiedOf(page.id, lang),
+  image: abs(OG_IMAGE.path),
   articleSection: sections,
   isPartOf: { '@id': `${SITE_URL}/#website` },
   about: page[lang].keywords.map((k) => ({ '@type': 'Thing', name: k })),
+});
+
+const qaToFaq = (qa: QA[], lang: Lang) =>
+  qa.map((x) => ({ question: L(x.q, lang), answer: L(x.a, lang) }));
+
+/** A visible FAQ: the structured data must describe text that is on the page. */
+const faqHtml = (qa: QA[], lang: Lang) =>
+  `<h2>${lang === 'tr' ? 'Sıkça sorulan sorular' : 'Frequently asked questions'}</h2>
+${qa.map((x) => `<h3>${escapeHtml(L(x.q, lang))}</h3><p>${escapeHtml(L(x.a, lang))}</p>`).join('\n')}`;
+
+/**
+ * A page about one view of the application. `about` points at the one
+ * SoftwareApplication entity, so the pages read as parts of one product
+ * rather than as unrelated documents.
+ */
+const featurePageLd = (lang: Lang, page: Page): Jsonld => ({
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: page[lang].heading,
+  description: page[lang].description,
+  inLanguage: lang,
+  url: abs(page[lang].path),
+  dateModified: modifiedOf(page.id, lang),
+  isPartOf: { '@id': `${SITE_URL}/#website` },
+  about: { '@id': `${SITE_URL}/#app` },
+  primaryImageOfPage: abs(OG_IMAGE.path),
+  potentialAction: {
+    '@type': 'UseAction',
+    target: `${abs('/')}${page[lang].appHash}`,
+  },
 });
 
 const faqLd = (faqs: { question: string; answer: string }[]): Jsonld => ({
@@ -333,6 +420,15 @@ function homeBody(lang: Lang): string {
 <a class="cta" href="${escapeHtml(abs(pageById('theory')[lang].path))}">${
     tr ? 'Mekanizma tekniği referansı' : 'Mechanism theory reference'
   }</a></p>
+<h2>${tr ? 'Uygulamanın bölümleri' : 'What is in the application'}</h2>
+<ul>${(['optimizer', 'runner', 'favorites'] as const)
+    .map((id) => {
+      const p = pageById(id)[lang];
+      return `<li><a href="${escapeHtml(abs(p.path))}">${escapeHtml(p.heading)}</a> — ${escapeHtml(
+        p.description,
+      )}</li>`;
+    })
+    .join('')}</ul>
 <h2>${tr ? 'Ölçülmüş sonuçlar' : 'Measured results'}</h2>
 <div class="facts">${facts}</div>
 <h2>${tr ? 'Nasıl çalışıyor' : 'How it works'}</h2>
@@ -342,7 +438,34 @@ ${methods}
 <h2>${tr ? 'Kullanılan teknolojiler' : 'Built with'}</h2>
 <div class="tablewrap"><table><tbody>${TECH_STACK.map(
     (s) => `<tr><td><code>${escapeHtml(s.name)}</code></td><td>${escapeHtml(L(s.role, lang))}</td></tr>`,
-  ).join('')}</tbody></table></div>`;
+  ).join('')}</tbody></table></div>
+${faqHtml(HOME_FAQ, lang)}`;
+}
+
+const FEATURE_CONTENT: Record<'optimizer' | 'runner' | 'favorites', FeatureContent> = {
+  optimizer: OPTIMIZER_CONTENT,
+  runner: RUNNER_CONTENT,
+  favorites: FAVORITES_CONTENT,
+};
+
+function featureBody(lang: Lang, id: 'optimizer' | 'runner' | 'favorites'): string {
+  const m = pageById(id)[lang];
+  const c = FEATURE_CONTENT[id];
+  const tr = lang === 'tr';
+  return `<h1>${escapeHtml(m.heading)}</h1>
+<p class="lede">${escapeHtml(m.description)}</p>
+<p><a class="cta" href="${escapeHtml(abs('/'))}${escapeHtml(m.appHash)}">${
+    tr ? `${escapeHtml(m.nav)} ekranını aç` : `Open the ${escapeHtml(m.nav)}`
+  }</a></p>
+${c.sections
+  .map(
+    (sec) =>
+      `<h2>${escapeHtml(L(sec.title, lang))}</h2>\n${sec.body
+        .map((b) => `<p>${escapeHtml(L(b, lang))}</p>`)
+        .join('\n')}`,
+  )
+  .join('\n')}
+${faqHtml(c.faq, lang)}`;
 }
 
 function aboutBody(lang: Lang): string {
@@ -417,11 +540,33 @@ for (const lang of LANGS) {
         lang,
         meta: home[lang],
         alternates: alternatesFor(home),
-        jsonld: [softwareLd(lang), websiteLd(lang)],
+        jsonld: [softwareLd(lang), websiteLd(lang), faqLd(qaToFaq(HOME_FAQ, lang))],
         body: homeBody(lang),
       }),
     ),
   );
+
+  // Optimiser, Runner, Favourites — one page per view of the application, so
+  // a question about any of them has a URL that answers it.
+  for (const id of ['optimizer', 'runner', 'favorites'] as const) {
+    const page = pageById(id);
+    written.push(
+      write(
+        join(page[lang].path, 'index.html'),
+        shell({
+          lang,
+          meta: page[lang],
+          alternates: alternatesFor(page),
+          jsonld: [
+            featurePageLd(lang, page),
+            breadcrumbLd(lang, page),
+            faqLd(qaToFaq(FEATURE_CONTENT[id].faq, lang)),
+          ],
+          body: featureBody(lang, id),
+        }),
+      ),
+    );
+  }
 
   // About
   const about = pageById('about');
@@ -492,7 +637,7 @@ const urls = PAGES.flatMap((page) =>
       .join('\n');
     return `  <url>
     <loc>${escapeHtml(abs(page[lang].path))}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${modifiedOf(page.id, lang)}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority.toFixed(1)}</priority>
 ${alts}
@@ -516,15 +661,37 @@ written.push(write(`${INDEXNOW_KEY}.txt`, INDEXNOW_KEY));
 
 /* ----------------------------- robots.txt --------------------------- */
 
+/** Answer-engine and AI-search crawlers, by their published user-agent tokens. */
+const AI_CRAWLERS = [
+  'GPTBot',
+  'OAI-SearchBot',
+  'ChatGPT-User',
+  'ClaudeBot',
+  'Claude-SearchBot',
+  'Claude-User',
+  'PerplexityBot',
+  'Google-Extended',
+  'Applebot-Extended',
+  'CCBot',
+];
+
 written.push(
   write(
     'robots.txt',
     `# KREAMET — ${REPO_URL}
-User-agent: *
+#
+# Search engines and answer engines are both welcome. The AI crawlers are
+# named explicitly so that allowing them is a stated decision rather than an
+# accident of the wildcard — and each named group repeats the rules, because a
+# crawler that finds its own group ignores the \`*\` group entirely.
+${['*', ...AI_CRAWLERS]
+  .map(
+    (ua) => `User-agent: ${ua}
 Allow: /
-
-# Source maps and the worker bundle carry nothing a crawler can use.
-Disallow: /assets/*.map$
+# Source maps carry nothing a crawler can use.
+Disallow: /assets/*.map$`,
+  )
+  .join('\n\n')}
 
 Sitemap: ${abs('/sitemap.xml')}
 `,
@@ -551,6 +718,20 @@ computed by the same solver the optimiser minimised.
 The application uses hash routing, so the pages below are static copies
 generated for reading; the interactive app lives at ${abs('/')}.
 
+## Application
+
+- [Designer](${abs(pageById('home').en.path)}): ${pageById('home').en.description}
+- [Optimiser](${abs(pageById('optimizer').en.path)}): ${pageById('optimizer').en.description}
+- [Runner](${abs(pageById('runner').en.path)}): ${pageById('runner').en.description}
+- [Favourite Mechanisms](${abs(pageById('favorites').en.path)}): ${
+  pageById('favorites').en.description
+}
+- Türkçe: [Tasarım](${abs(pageById('home').tr.path)}), [Optimizasyon](${abs(
+  pageById('optimizer').tr.path,
+)}), [Çalıştırıcı](${abs(pageById('runner').tr.path)}), [Favori Mekanizmalar](${abs(
+  pageById('favorites').tr.path,
+)})
+
 ## Documentation
 
 - [Mechanism Theory — A Working Reference (5000 lines)](${abs(pageById('theory').en.path)}): ${
@@ -570,6 +751,12 @@ generated for reading; the interactive app lives at ${abs('/')}.
 ## Source
 
 - [GitHub repository](${REPO_URL})
+
+## Quick answers
+
+${[...HOME_FAQ, ...OPTIMIZER_CONTENT.faq, ...RUNNER_CONTENT.faq, ...FAVORITES_CONTENT.faq]
+  .map((x) => `- **${x.q.en}** ${x.a.en}`)
+  .join('\n')}
 
 ## Notes
 

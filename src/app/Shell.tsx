@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect } from 'react';
 import App from './App';
-import { useRoute } from './router';
+import { isWorkspace, useRoute } from './router';
 import { SiteNav } from '../ui/SiteNav';
 import { useT } from '../i18n';
 
@@ -17,19 +17,30 @@ import { useT } from '../i18n';
  */
 const AboutPage = lazy(() => import('../pages/AboutPage'));
 const TheoryPage = lazy(() => import('../pages/TheoryPage'));
+const FavoritesPage = lazy(() => import('../pages/FavoritesPage'));
 
 export default function Shell() {
-  const { route } = useRoute();
+  const { route, anchor } = useRoute();
   const t = useT();
+  const workbench = isWorkspace(route);
 
-  // The designer manages its own scrolling inside a fixed grid; the content
+  // The workbench manages its own scrolling inside a fixed grid; the content
   // pages scroll normally. Toggling this on <body> avoids two scrollbars.
   useEffect(() => {
-    document.body.classList.toggle('scrolls', route !== 'designer');
+    document.body.classList.toggle('scrolls', !workbench);
     return () => document.body.classList.remove('scrolls');
-  }, [route]);
+  }, [workbench]);
 
-  if (route === 'designer') return <App />;
+  // A title per view, so a tab, a bookmark and a shared link each say which
+  // part of the application they are. The static pages carry their own.
+  useEffect(() => {
+    document.title = `${t(`nav.${route}`)} — KREAMET`;
+  }, [route, t]);
+
+  // Designer, Optimiser and Runner are one element in one position, so React
+  // keeps the same App mounted across them: switching view changes the
+  // panels on screen, not the mechanism, the playback or a running search.
+  if (workbench) return <App workspace={route} anchor={anchor} />;
 
   return (
     <div className="site">
@@ -37,7 +48,13 @@ export default function Shell() {
         <SiteNav />
       </header>
       <Suspense fallback={<div className="loading">{t('theory.loading')}</div>}>
-        {route === 'about' ? <AboutPage /> : <TheoryPage />}
+        {route === 'about' ? (
+          <AboutPage />
+        ) : route === 'favorites' ? (
+          <FavoritesPage />
+        ) : (
+          <TheoryPage />
+        )}
       </Suspense>
     </div>
   );

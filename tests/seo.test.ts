@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -12,7 +20,9 @@ import {
   abs,
   allUrls,
   pageById,
+  type PageId,
 } from '../src/seo/config';
+import { auditSite } from '../scripts/audit';
 import { extractFaq, markdownToHtml, parseMarkdown, stripInline, summarise } from '../src/ui/markdownHtml';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -33,6 +43,11 @@ beforeAll(() => {
     cwd: ROOT,
     stdio: 'pipe',
   });
+  // Vite copies public/ into dist; the generator alone does not. The audit
+  // checks that the social image a page names actually exists.
+  copyFileSync(join(ROOT, 'public/og-image.png'), join(OUT, 'og-image.png'));
+  // The SPA shell, which vite build would emit: the app links point at it.
+  copyFileSync(join(ROOT, 'index.html'), join(OUT, 'index.html'));
 }, 120_000);
 
 afterAll(() => {
@@ -152,7 +167,7 @@ describe('generated files', () => {
 });
 
 describe('generated pages', () => {
-  const pageHtml = (id: 'home' | 'about' | 'theory', lang: 'tr' | 'en') =>
+  const pageHtml = (id: PageId, lang: 'tr' | 'en') =>
     read(join(pageById(id)[lang].path, 'index.html'));
 
   it('declares the right language, canonical and alternates on every page', () => {
@@ -314,5 +329,70 @@ describe('html serialisation', () => {
 
   it('returns nothing rather than guessing when no FAQ chapter exists', () => {
     expect(extractFaq(parseMarkdown('# Other\n\n## Q\n\ntext'), /Nope/)).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe('SEO/AEO audit of the generated site', () => {
+  it('finds no errors', () => {
+    const errors = auditSite(OUT).filter((f) => f.level === 'error');
+    expect(errors, errors.map((e) => `${e.where}: ${e.message}`).join('\n')).toEqual([]);
+  });
+
+  it('would have caught the SVG social image the site used to ship', () => {
+    const svgShell = readFileSync(join(OUT, 'en/index.html'), 'utf8').replace(
+      /og-image\.png/g,
+      'kreamet-logo.svg',
+    );
+    const dir = mkdtempSync(join(tmpdir(), 'kreamet-audit-'));
+    try {
+      mkdirSync(join(dir, 'en'));
+      writeFileSync(join(dir, 'en/index.html'), svgShell);
+      const found = auditSite(dir).filter((f) => /not a raster image/.test(f.message));
+      expect(found.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('generates a page per application view, each with a visible FAQ', () => {
+    for (const id of ['optimizer', 'runner', 'favorites'] as const) {
+      for (const lang of LANGS) {
+        const html = read(join(pageById(id)[lang].path, 'index.html'));
+        expect(html).toContain(`${abs('/')}${pageById(id)[lang].appHash}`);
+        expect(html).toMatch(/"@type":"FAQPage"/);
+        expect(html).toMatch(/<h2>(Frequently asked questions|Sıkça sorulan sorular)<\/h2>/);
+      }
+    }
+  });
+
+  it('offers answer engines a FAQ on the home page and quick answers in llms.txt', () => {
+    for (const lang of LANGS) {
+      expect(read(join(pageById('home')[lang].path, 'index.html'))).toMatch(/"@type":"FAQPage"/);
+    }
+    const llms = read('llms.txt');
+    expect(llms).toContain('## Quick answers');
+    expect(llms).toContain(abs(pageById('runner').en.path));
+  });
+
+  it('names the AI crawlers in robots.txt, each with the full rule set', () => {
+    const robots = read('robots.txt');
+    for (const ua of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']) {
+      const group = robots.split(`User-agent: ${ua}\n`)[1]?.split('\n\n')[0] ?? '';
+      expect(group, ua).toContain('Allow: /');
+      expect(group, ua).toContain('Disallow: /assets/*.map$');
+    }
+  });
+
+  it('dates each sitemap entry from its content, not the build', () => {
+    const xml = read('sitemap.xml');
+    const theory = xml.split(`<loc>${abs(pageById('theory').en.path)}</loc>`)[1];
+    const lastmod = /<lastmod>([^<]+)<\/lastmod>/.exec(theory)![1];
+    const fromGit = execFileSync('git', ['log', '-1', '--format=%cs', '--', 'src/content/theory.en.md'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).trim();
+    expect(lastmod).toBe(fromGit || lastmod);
   });
 });

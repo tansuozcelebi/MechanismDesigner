@@ -12,8 +12,9 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 167 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (68 checks)
+npm test           # 189 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (83 checks)
+npm run audit      # SEO/AEO audit of dist/ (also run at the end of every build)
 npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run deploy:dry # what a deploy would change, without changing it
 npm run deploy     # publish dist/ to SiteGround over FTPS
@@ -27,8 +28,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (167) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 68-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (189) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 83-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -50,12 +51,15 @@ CHROMIUM="/path/to/chrome" npm run smoke   # or point it at a browser you alread
 
 ## Pages
 
-The app is three hash routes, so every page has a real, linkable URL and the
+The app is six hash routes, so every page has a real, linkable URL and the
 build works from a file path or a project subdirectory without server rewrites.
 
 | Route | Page |
 |---|---|
 | `#/designer` | The synthesis and simulation workbench (the landing route) |
+| `#/optimizer` | The same workbench with the optimiser and what it scores against in front |
+| `#/runner` | The same workbench set up to watch the mechanism move: motor on, live readouts |
+| `#/favorites` | **Favourite Mechanisms** — saved designs, each runnable in place |
 | `#/about` | Project and developer information, with the measured figures |
 | `#/theory` | **Mekanizma Tekniği / Mechanism Theory** — a full reference |
 
@@ -104,6 +108,59 @@ The controls are `←` and `→` rather than `◀` `▶`: the triangles already 
 *play* on the timeline, and one glyph should not mean two things. The smoke
 suite found that collision before a human would have — its play-button selector
 matched a dock control and moved a panel instead of starting playback.
+
+### The Panels menu
+
+The ▤ **Panels** button in the header lists every panel in one table, because
+the per-panel header controls cannot reach a panel that is hidden and are slow
+to reach one twenty sections down a dock:
+
+| Column / button | Does |
+|---|---|
+| Shown | Show or hide the panel |
+| Dock | Left or right |
+| Dockable | Unticked pins the panel: no drag handle, no ← → ✕ in its header; only the menu moves it |
+| Show all · Hide all | Every panel at once |
+| Expand all · Collapse all | Open or close every section |
+| Make all dockable · Pin all in place | Dockability for every panel at once |
+| Reset layout | Offered once something has been moved |
+
+The menu closes on Escape (returning focus to its button) and on a click
+outside. On a phone it is a full-width sheet and the button is icon-only, so it
+fits beside the language switch.
+
+## Designer, Optimiser and Runner
+
+The three are **views of one workbench**, not three apps. They are the same
+`App` element in the same position, so React keeps it mounted across them:
+switching view never loses the mechanism, the playback position or a search in
+progress. What changes is which panels are on screen and where
+(`WORKSPACE_DEFAULTS` in `App.tsx`), and each view remembers its own
+arrangement under its own key — the designer keeps `kreamet.dock`, the key its
+layout has always used, so nobody's saved layout reset with this change.
+Pinned (non-dockable) panels are shared by all three: whether a panel should
+move is about how you work with it, not which view it is in.
+
+Arriving in the runner starts the motor; leaving it does not stop it.
+
+## Favourite mechanisms
+
+☆ in the header saves the mechanism on screen — topology, parameter vector and
+the target curve it was measured against — and turns to ★ while that exact
+design is on screen. The target travels with it because the error figures only
+mean something against the curve they were measured on.
+
+`#/favorites` shows each one on a card that **runs in place**: the design is
+swept through a revolution with the workbench's own solver and played back as
+SVG. SVG rather than a canvas per card, because browsers cap WebGL contexts at
+around sixteen and the list can be longer than that. Each card links to
+`#/runner/<id>` (full physics) and `#/designer/<id>` (editing) — real links, so
+they can be bookmarked or opened in a new tab. The list lives in
+`localStorage`, is shared live between the header star, the page and other
+tabs, can be exported to JSON and imported elsewhere, and offers the shipped
+optimised designs for one-click adding. Stored entries are validated on load:
+a parameter vector that does not fit its spec's layout is dropped rather than
+drawn as a different linkage under the saved name.
 
 ## The best-mechanisms table
 
@@ -183,17 +240,21 @@ is **one** indexable address whose HTML is an empty `<div id="root">`. A sitemap
 listing `#/…` fragments would not fix that — it would list one page six times.
 
 So `npm run build` runs `scripts/seo.ts` after `vite build` and emits a real
-crawlable surface next to the bundle: six static pages at real paths, carrying
+crawlable surface next to the bundle: twelve static pages at real paths, carrying
 the actual text.
 
 | Generated | |
 |---|---|
 | `/tr/` · `/en/` | What the workbench is, the measured results, the method |
+| `/tr/optimizasyon/` · `/en/optimizer/` | The optimiser: what it searches, what it scores, FAQ |
+| `/tr/calistirici/` · `/en/runner/` | The runner: what it shows, how torque is computed, FAQ |
+| `/tr/favori-mekanizmalar/` · `/en/favorites/` | The favourites module, FAQ |
 | `/tr/hakkinda/` · `/en/about/` | Project and developer |
 | `/tr/mekanizma-teknigi/` · `/en/theory/` | The full reference — 243 kB and 265 kB of rendered HTML |
-| `sitemap.xml` | All six URLs, each with `lastmod`, `changefreq`, `priority` and `xhtml:link` alternates |
-| `robots.txt` | Allows everything except source maps; points at the sitemap |
-| `llms.txt` | The [llmstxt.org](https://llmstxt.org) index — what the project is, in links |
+| `sitemap.xml` | All twelve URLs, each with `lastmod` (from git), `changefreq`, `priority` and `xhtml:link` alternates |
+| `robots.txt` | Allows everything except source maps, names the AI crawlers explicitly; points at the sitemap |
+| `llms.txt` | The [llmstxt.org](https://llmstxt.org) index — what the project is, in links, plus quick answers |
+| `og-image.png` | 1200 × 630 social preview (from `public/`) |
 | `llms-full.txt` | Both references as one 373 kB plain-text payload for answer engines |
 
 These pages are **content, not redirects**. Bouncing a crawler to `#/theory`
@@ -226,8 +287,40 @@ elsewhere with one setting:
 SITE_URL=https://example.com npm run build
 ```
 
-which also rewrites the origin baked into `index.html`. `tests/seo.test.ts`
-(23 of the 167 tests) runs the real generator into a temporary directory and
+which also rewrites the origin baked into `index.html`.
+
+### The audit
+
+`scripts/audit.ts` reads the **built** site the way a crawler meets it and runs
+at the end of every `npm run build` (and on its own as `npm run audit`); an
+error fails the build. Per page: one `lang`, a self-referencing absolute
+canonical, `tr`/`en`/`x-default` hreflang that resolve, title 15–70 and
+description 70–320 characters, no `noindex`, an `<h1>`, alt text on every image,
+a **raster** `og:image` that exists, `og:title`/`og:description`/`og:url`, JSON-LD
+that parses, every FAQ question in the JSON-LD also visible on the page, and
+every internal link resolving. Site-wide: sitemap ↔ pages both ways, `lastmod`
+not all identical, `robots.txt` not disallowing `/` and naming the sitemap, and
+`llms.txt` well-formed with every link resolving.
+
+Run against the site as it was before this change it reported **7 errors and 5
+warnings**; it now reports **0 errors and 2 warnings**:
+
+| Finding | Was | Now |
+|---|---|---|
+| `og:image` was the SVG logo on all 7 pages — Facebook, LinkedIn, X and chat unfurlers do not render SVG, so every shared link showed a blank card | error ×7 | PNG 1200 × 630 with width, height, type and alt |
+| Every sitemap `lastmod` (and `dateModified`) was the build date, so each deploy claimed every page changed; Google stops trusting `lastmod` that behaves like this | warning | Each page's last commit date; the deploy checks out full history for it |
+| Home pages carried no question-and-answer content for answer engines | warning ×2 | Visible FAQ + `FAQPage` on both, and on each new page |
+| Optimiser, Runner and Favourites had no crawlable URL at all | — | One page each, per language, with `WebPage` → `SoftwareApplication`, breadcrumbs and FAQ |
+| Static-page navigation used the full page headings as link text | — | The app's own short labels, with `aria-current` |
+| No `og:locale:alternate`, no `twitter:image:alt` | — | Added |
+| The reference has 50 `<h1>`, one per chapter | warning ×2 | Kept: valid HTML, mirrors the app's outline, harmless to ranking |
+
+Found in the app rather than the static pages, and fixed with it: the About
+page and the workbench had no `<h1>` (both now carry a visually hidden one),
+the document title never changed between views (it now names the view), and
+below 560 px the rule that hides the header's design buttons also hid the
+**EN/TR switch**, so a phone had no way to change language. `tests/seo.test.ts`
+(29 of the 189 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
