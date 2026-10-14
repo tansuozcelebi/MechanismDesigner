@@ -19,7 +19,8 @@
     "smoke": "node scripts/smoke.mjs",
     "deploy": "node scripts/deploy.mjs",
     "deploy:dry": "DRY_RUN=1 node scripts/deploy.mjs",
-    "merge": "tsx scripts/merge.ts"
+    "merge": "tsx scripts/merge.ts",
+    "automerge": "node scripts/automerge.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

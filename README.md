@@ -12,7 +12,7 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 189 unit + integration tests
+npm test           # 195 unit + integration tests
 npm run smoke      # browser smoke test against a running dev server (83 checks)
 npm run audit      # SEO/AEO audit of dist/ (also run at the end of every build)
 npm run build      # typecheck → bundle → generate the static/SEO surface
@@ -28,7 +28,7 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (189) → `build`, and uploads `dist` as an artifact |
+| **verify** | `npm ci` → `typecheck` → `test` (195) → `build`, and uploads `dist` as an artifact |
 | **smoke** | installs Chromium, starts the dev server, runs the 83-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
@@ -320,12 +320,41 @@ page and the workbench had no `<h1>` (both now carry a visually hidden one),
 the document title never changed between views (it now names the view), and
 below 560 px the rule that hides the header's design buttons also hid the
 **EN/TR switch**, so a phone had no way to change language. `tests/seo.test.ts`
-(29 of the 189 tests) runs the real generator into a temporary directory and
+(29 of the 195 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
 file that exists, parseable JSON-LD, escaped markup, and no `http-equiv=refresh`
 anywhere.
+
+## Automatic merging
+
+`scripts/automerge.mjs` merges a pull request only when it is actually ready,
+and `.github/workflows/automerge.yml` runs it after every CI run:
+
+```bash
+# label a PR `automerge` on GitHub and it merges itself once CI is green, or by hand:
+npm run automerge -- --via-gh --dry-run      # what is ready, changing nothing
+npm run automerge -- --via-gh --pr 16        # merge one PR (label not needed)
+```
+
+A PR merges only if it is open, not a draft, targets `main`, GitHub reports it
+conflict-free, its head commit has **at least one** check run, every check has
+finished, and none failed or was cancelled. GitHub's own auto-merge was not
+enough: it waits only for *required* checks, and with no branch protection on
+`main` it would merge a PR the moment it opened, before CI had started. The
+merge is pinned to the head SHA the checks were read for, so a push in between
+makes it fail rather than slip untested code in, and the commit keeps the
+existing title convention, `Merge pull request #N: <title>`.
+
+Two details in the workflow matter. The script is checked out from `main`,
+never from the PR: the job holds a write token, and running the branch's own
+code would let it rewrite its judge. And a merge made with the workflow's
+`GITHUB_TOKEN` does not trigger other workflows, so the push to `main` would
+not run CI and the deploy chained to CI would never fire; `--dispatch-ci`
+starts CI on `main` explicitly after a merge. Locally, through `gh`, the merge
+is made with your own credentials and the push triggers CI normally, so the
+flag is not needed there.
 
 ## Deployment
 
