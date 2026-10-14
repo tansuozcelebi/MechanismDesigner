@@ -168,12 +168,12 @@ export const METHODS: { title: Bilingual; body: Bilingual }[] = [
 
 export const VERIFICATION: Bilingual[] = [
   {
-    tr: '78 birim ve entegrasyon testi — mobilite, kapalı form çözüm, dal sürekliliği, yerçekimi momentinin sonlu farkla doğrulanması, hedef eğri gidiş-dönüşü ve kısıtların sıfırlanması.',
-    en: '78 unit and integration tests — mobility, closed-form solution, branch continuity, gravity torque checked against a finite difference, target round-tripping and constraint reset.',
+    tr: '195 birim ve entegrasyon testi — mobilite, kapalı form çözüm, dal sürekliliği, yerçekimi momentinin sonlu farkla doğrulanması, hedef eğri gidiş-dönüşü, kısıtların sıfırlanması, favori mekanizmalar ve üretilen sitenin SEO/AEO denetimi.',
+    en: '195 unit and integration tests — mobility, closed-form solution, branch continuity, gravity torque checked against a finite difference, target round-tripping, constraint reset, favourite mechanisms and an SEO/AEO audit of the generated site.',
   },
   {
-    tr: '35 tarayıcı smoke kontrolü — krank sürükleme, ekran↔dünya gidiş-dönüşü, oynatma, hata ayıklama katmanı, kol sayısı değişimi, seçim ve düzenleme, hedef düzenleme, kısıt değişimi ve EN/TR geçişi.',
-    en: '35 browser smoke checks — crank dragging, screen↔world round-tripping, playback, the debug overlay, changing the link count, selection and editing, target editing, constraint changes and the EN/TR switch.',
+    tr: '83 tarayıcı smoke kontrolü — krank sürükleme, ekran↔dünya gidiş-dönüşü, oynatma, hata ayıklama katmanı, kol sayısı değişimi, seçim ve düzenleme, hedef düzenleme, kısıt değişimi, panel yerleşim menüsü, Optimizasyon/Çalıştırıcı görünümleri, favoriler ve EN/TR geçişi.',
+    en: '83 browser smoke checks — crank dragging, screen↔world round-tripping, playback, the debug overlay, changing the link count, selection and editing, target editing, constraint changes, the panel layout menu, the Optimiser and Runner views, favourites and the EN/TR switch.',
   },
   {
     tr: 'Uygulamayla gelen optimize tasarımlar, testlerde aynı çözücüyle yeniden değerlendirilir ve kayıtlı metriklerini yeniden üretmek zorundadır.',

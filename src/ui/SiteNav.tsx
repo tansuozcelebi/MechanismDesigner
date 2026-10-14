@@ -1,13 +1,17 @@
+import { useEffect, useRef, type ReactNode } from 'react';
 import { hrefFor, useRoute, ROUTES, type Route } from '../app/router';
 import { useT } from '../i18n';
 import { APP_NAME } from '../i18n/translations';
 import { LanguageSwitch } from './LanguageSwitch';
 
-const LABEL_KEY: Record<Route, 'nav.designer' | 'nav.about' | 'nav.theory'> = {
+const LABEL_KEY = {
   designer: 'nav.designer',
+  optimizer: 'nav.optimizer',
+  runner: 'nav.runner',
+  favorites: 'nav.favorites',
   about: 'nav.about',
   theory: 'nav.theory',
-};
+} as const satisfies Record<Route, string>;
 
 /** The brand lockup, from the single shipped asset. */
 export const LOGO_SRC = '/kreamet-logo.svg';
@@ -30,16 +34,32 @@ export function SiteNav({
   designKind,
   loadInitial,
   exportDesign,
+  tools,
 }: {
   /** The designer's live mechanism summary; absent on the content pages. */
   subtitle?: string;
   designLabel?: string;
-  designKind?: 'optimized' | 'initial' | 'manual' | 'sampled';
+  designKind?: 'optimized' | 'initial' | 'manual' | 'sampled' | 'favorite';
   loadInitial?: () => void;
   exportDesign?: () => void;
+  /** Workbench-only controls (favourite star, panel layout menu). */
+  tools?: ReactNode;
 }) {
   const t = useT();
   const { route } = useRoute();
+  const navRef = useRef<HTMLElement | null>(null);
+
+  // On a phone the links scroll sideways, and the current one can be off the
+  // edge — "Favourite Mechanisms" is the fourth of six. Bring it into view so
+  // the bar always shows where you are.
+  useEffect(() => {
+    const active = navRef.current?.querySelector<HTMLElement>('a.active');
+    const nav = navRef.current;
+    if (!active || !nav || nav.scrollWidth <= nav.clientWidth) return;
+    const a = active.getBoundingClientRect();
+    const n = nav.getBoundingClientRect();
+    nav.scrollLeft += a.left - n.left - (n.width - a.width) / 2;
+  }, [route]);
 
   return (
     <div className="sitenav-container">
@@ -47,7 +67,7 @@ export function SiteNav({
         <img className="logo" src={LOGO_SRC} alt={APP_NAME} />
       </a>
 
-      <nav className="sitenav">
+      <nav className="sitenav" aria-label={t('nav.main')} ref={navRef}>
         {ROUTES.map((r) => (
           <a
             key={r}
@@ -72,6 +92,7 @@ export function SiteNav({
         )}
         {loadInitial && <button onClick={loadInitial}>{t('app.loadInitial')}</button>}
         {exportDesign && <button onClick={exportDesign}>{t('app.export')}</button>}
+        {tools}
         <LanguageSwitch />
       </div>
     </div>

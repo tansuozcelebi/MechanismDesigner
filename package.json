@@ -6,8 +6,9 @@
   "description": "KREAMET — single-motor 8-bar planar linkage synthesis & simulation for a 250x250 mm heart trajectory",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && tsx scripts/seo.ts",
+    "build": "tsc --noEmit && vite build && tsx scripts/seo.ts && tsx scripts/audit.ts",
     "seo": "tsx scripts/seo.ts",
+    "audit": "tsx scripts/audit.ts",
     "indexnow": "tsx scripts/indexnow.ts",
     "preview": "vite preview",
     "test": "vitest run",
@@ -18,7 +19,8 @@
     "smoke": "node scripts/smoke.mjs",
     "deploy": "node scripts/deploy.mjs",
     "deploy:dry": "DRY_RUN=1 node scripts/deploy.mjs",
-    "merge": "tsx scripts/merge.ts"
+    "merge": "tsx scripts/merge.ts",
+    "automerge": "node scripts/automerge.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

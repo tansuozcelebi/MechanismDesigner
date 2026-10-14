@@ -1,0 +1,80 @@
+name: Auto-merge
+
+# Merges open pull requests labelled `automerge` once every check on their
+# head commit has passed and GitHub reports them conflict-free. The rules live
+# in scripts/automerge.mjs; this file only decides when to look.
+#
+# Security: the script is always checked out from the default branch, never
+# from the pull request. This job holds a write token, and running code from
+# the branch being judged would let that branch rewrite its own judge.
+on:
+  # Whenever a CI run finishes, a PR may have just become ready.
+  workflow_run:
+    workflows: ['CI', 'Node.js CI']
+    types: [completed]
+  # Labelling a PR whose checks are already green should not wait for the
+  # next CI run.
+  pull_request:
+    types: [labeled, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Pull request number (label not required). Empty = every labelled PR.'
+        required: false
+      dry_run:
+        description: 'Only report what would be merged'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  # To start CI on main after a merge; see --dispatch-ci in the script.
+  actions: write
+
+# Two CI workflows finish at nearly the same moment; let them queue rather
+# than race to merge the same PR.
+concurrency:
+  group: automerge
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    name: Auto-merge ready pull requests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: scripts/automerge.mjs
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Merge what is ready
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ inputs.pr }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          # Until the script itself has reached the default branch (the PR
+          # that introduces it), there is nothing to run: say so, not fail.
+          if [ ! -f scripts/automerge.mjs ]; then
+            echo "::notice::scripts/automerge.mjs is not on the default branch yet; nothing to do."
+            exit 0
+          fi
+          args="--dispatch-ci"
+          if [ -n "$PR" ]; then args="$args --pr $PR"; fi
+          if [ "$DRY_RUN" = "true" ]; then args="$args --dry-run"; fi
+          node scripts/automerge.mjs $args

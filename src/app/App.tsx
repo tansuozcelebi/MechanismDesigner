@@ -50,6 +50,19 @@ import { HoverHint } from '../ui/HoverHint';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section, SectionGroup, type SectionGroupCommand } from '../ui/primitives';
 import { DockSlot, useDockLayout, type Dock } from '../ui/dock';
+import { PanelLayoutMenu } from '../ui/PanelLayoutMenu';
+import type { Workspace } from './router';
+import {
+  designKey,
+  favoriteKey,
+  loadFavorites,
+  newFavoriteId,
+  subscribeFavorites,
+  updateFavorites,
+  withFavorite,
+  withoutFavorite,
+  type Favorite,
+} from './favorites';
 import {
   clearSaved,
   loadSaved,
@@ -124,7 +137,7 @@ function startingParams(spec: MechanismSpec, seed: number): { params: number[]; 
   return { params: boundsFor(spec).map(([lo, hi]) => (lo + hi) / 2), sampled: false };
 }
 
-type DesignKind = 'optimized' | 'initial' | 'manual' | 'sampled';
+type DesignKind = 'optimized' | 'initial' | 'manual' | 'sampled' | 'favorite';
 
 /** One dockable panel: a stable id, where it starts, and what it draws. */
 type PanelId =
@@ -134,7 +147,64 @@ type PanelId =
 
 type PanelDef = { id: PanelId; def: Dock; node: ReactNode };
 
-export default function App() {
+/**
+ * Where panels start in each workspace.
+ *
+ * The three workspaces are one workbench seen for three jobs, so they differ
+ * only in what is on screen. The designer keeps every panel's registered
+ * default; the optimiser puts the search and what it is scored against in
+ * front; the runner keeps only what you read while the mechanism moves. Any
+ * of it can be changed from the Panels menu, and each workspace remembers its
+ * own arrangement.
+ */
+const WORKSPACE_DEFAULTS: Record<Workspace, Partial<Record<PanelId, Dock>>> = {
+  designer: {},
+  optimizer: {
+    mechanism: 'left',
+    target: 'left',
+    constraints: 'left',
+    objective: 'left',
+    targetFit: 'left',
+    optimizer: 'right',
+    cycle: 'right',
+    motor: 'hidden',
+    display: 'hidden',
+    torque: 'hidden',
+    topology: 'hidden',
+    design: 'hidden',
+    geometry: 'hidden',
+    inspector: 'hidden',
+    live: 'hidden',
+    links: 'hidden',
+  },
+  runner: {
+    motor: 'left',
+    display: 'left',
+    torque: 'left',
+    cycle: 'left',
+    live: 'right',
+    targetFit: 'right',
+    links: 'right',
+    mechanism: 'hidden',
+    target: 'hidden',
+    objective: 'hidden',
+    topology: 'hidden',
+    constraints: 'hidden',
+    design: 'hidden',
+    geometry: 'hidden',
+    inspector: 'hidden',
+    optimizer: 'hidden',
+  },
+};
+
+export default function App({
+  workspace = 'designer',
+  anchor = null,
+}: {
+  workspace?: Workspace;
+  /** `#/runner/<favourite id>` — a favourite to load on arrival. */
+  anchor?: string | null;
+} = {}) {
   const t = useT();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -153,7 +223,7 @@ export default function App() {
    * the thing they are annotating.
    */
   const compact = useCompactLayout();
-  const dock = useDockLayout();
+  const dock = useDockLayout(workspace);
   const [drawer, setDrawer] = useState<'left' | 'right' | null>(null);
   const [groupCommand, setGroupCommand] = useState<SectionGroupCommand | null>(null);
 
@@ -230,7 +300,14 @@ export default function App() {
   const bumpConfig = useCallback(() => setConfigVersion((v) => v + 1), []);
 
   const [theta, setTheta] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(workspace === 'runner');
+  /** One-line status shown over the canvas (a favourite that could not be found, …). */
+  const [notice, setNotice] = useState<string | null>(null);
+
+  /* ----------------------------- favourites ----------------------------- */
+
+  const [favorites, setFavorites] = useState<Favorite[]>(loadFavorites);
+  useEffect(() => subscribeFavorites(setFavorites), []);
   const [rpm, setRpm] = useState<number>(CONFIG.defaultRpm);
   const [gravityOn, setGravityOn] = useState(true);
   const [display, setDisplay] = useState({ grid: true, target: true, trail: true, debug: false });
@@ -242,6 +319,35 @@ export default function App() {
   const [scaleInfo, setScaleInfo] = useState({ mmPerPixel: 1, heightMm: 800 });
 
   const omega = rpmToRadPerSec(rpm);
+
+  // The runner exists to watch the mechanism move, so arriving there starts
+  // the motor. Leaving it does not stop it: that is the reader's call.
+  useEffect(() => {
+    if (workspace === 'runner') setPlaying(true);
+  }, [workspace]);
+
+  /**
+   * `#/runner/<id>` and `#/designer/<id>` load a favourite. Keyed on the anchor
+   * so following the same link twice in a row does not overwrite edits made in
+   * between, while following a different one does load it.
+   */
+  useEffect(() => {
+    if (!anchor) return;
+    const fav = loadFavorites().find((f) => f.id === anchor);
+    if (!fav) {
+      setNotice(t('fav.notFound'));
+      return;
+    }
+    setSpec(fav.spec);
+    setParams(fav.params);
+    if (fav.target) setTargetCurve(fav.target);
+    setDesignKind('favorite');
+    setSelectedIndex(-1);
+    setSelection(null);
+    setTheta(0);
+    setNotice(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchor]);
 
   /* ------------------------- whole-cycle analysis ------------------------ */
 
@@ -565,12 +671,37 @@ export default function App() {
     );
   };
 
+  const currentKey = designKey(spec, params);
+  const currentFavorite = favorites.find((f) => favoriteKey(f) === currentKey) ?? null;
+
+  const toggleFavorite = () => {
+    if (currentFavorite) {
+      updateFavorites((list) => withoutFavorite(list, currentFavorite.id));
+      return;
+    }
+    const fav: Favorite = {
+      id: newFavoriteId(),
+      name: `${t('fav.defaultName', { n: topo.links.length })} · ${designLabel}`,
+      spec,
+      params: params.slice(),
+      target,
+      summary: {
+        links: topo.links.length,
+        fullRotation: analysis.sw.fullRotation,
+        rms: analysis.metrics ? analysis.metrics.match.chamferRms : null,
+        J: analysis.metrics ? analysis.metrics.J : null,
+      },
+      addedAt: new Date().toISOString(),
+    };
+    updateFavorites((list) => withFavorite(list, fav));
+  };
+
   const collidingLinks: Set<LinkId> = viewerState?.collidingLinks ?? new Set();
   const degrees = wrapTwoPi(theta);
   const scaleBarMm = 50;
   const scaleBarPx = scaleBarMm / Math.max(1e-9, scaleInfo.mmPerPixel);
 
-  const panels: PanelDef[] = [
+  const registered: PanelDef[] = [
     {
       id: 'mechanism',
       def: 'left',
@@ -781,16 +912,31 @@ export default function App() {
    * controls appear in its section header — no panel component knows that
    * docking exists, and an undocked panel looks exactly like a docked one.
    */
+  // This workspace's starting arrangement, applied before anything reads `def`.
+  const panels: PanelDef[] = registered.map((p) => ({
+    ...p,
+    def: WORKSPACE_DEFAULTS[workspace][p.id] ?? p.def,
+  }));
+
   const renderDock = (where: Dock): ReactNode =>
     panels
       .filter((p) => dock.dockOf(p.id, p.def) === where)
       .map((p) => (
-        <DockSlot key={p.id} id={p.id} dock={where} move={dock.move}>
+        <DockSlot
+          key={p.id}
+          id={p.id}
+          dock={where}
+          move={dock.move}
+          dockable={dock.isDockable(p.id)}
+        >
           {p.node}
         </DockSlot>
       ));
 
   const hiddenPanels = panels.filter((p) => dock.dockOf(p.id, p.def) === 'hidden');
+  // A panel that starts hidden in this workspace has no dock of its own to
+  // return to; the tray brings it back on the left.
+  const homeOf = (p: PanelDef): Dock => (p.def === 'hidden' ? 'left' : p.def);
 
   /** Accept a panel dragged onto a dock. */
   const dropHandlers = (where: Dock) => ({
@@ -830,7 +976,10 @@ export default function App() {
   );
 
   return (
-    <div className={`app${compact ? ' compact' : ''}`}>
+    <div className={`app ws-${workspace}${compact ? ' compact' : ''}`}>
+      {/* One h1 per view, for screen readers and for the document outline;
+          the visible header is the brand bar, which is not a heading. */}
+      <h1 className="sr-only">{t(`ws.${workspace}.heading`)}</h1>
       <header className="header">
         <SiteNav
           subtitle={t('app.subtitle', {
@@ -842,6 +991,25 @@ export default function App() {
           designKind={designKind}
           loadInitial={loadInitial}
           exportDesign={exportDesign}
+          tools={
+            <>
+              <button
+                className={`star${currentFavorite ? ' on' : ''}`}
+                onClick={toggleFavorite}
+                aria-pressed={currentFavorite !== null}
+                title={t(currentFavorite ? 'app.unstar' : 'app.star')}
+                aria-label={t(currentFavorite ? 'app.unstar' : 'app.star')}
+              >
+                {currentFavorite ? '★' : '☆'}
+              </button>
+              <PanelLayoutMenu
+                panels={panels}
+                dock={dock}
+                workspaceLabel={t(`nav.${workspace}`)}
+                onCollapseAll={collapseAll}
+              />
+            </>
+          }
         />
       </header>
 
@@ -876,6 +1044,7 @@ export default function App() {
             <div className="bad">{t('canvas.solverFailed')}</div>
           )}
           {targetEditing && <div className="warn">{t('targetEdit.hint')}</div>}
+          {notice && <div className="warn">{notice}</div>}
         </div>
         <HoverHint
           hover={hover}
@@ -928,7 +1097,7 @@ export default function App() {
                 <>
                   <strong>{t('dock.hidden')}</strong>
                   {hiddenPanels.map((p) => (
-                    <button key={p.id} onClick={() => dock.move(p.id, p.def)}>
+                    <button key={p.id} onClick={() => dock.move(p.id, homeOf(p))}>
                       {t(`panelName.${p.id}`)} ↩
                     </button>
                   ))}

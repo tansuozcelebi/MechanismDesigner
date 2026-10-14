@@ -56,9 +56,9 @@ export function Section({
         aria-expanded={open}
         // Dragging the header is the quick way to move a panel; the buttons
         // below do the same thing for anyone not using a pointer.
-        draggable={slot !== null}
+        draggable={slot?.dockable === true}
         onDragStart={(e) => {
-          if (!slot) return;
+          if (!slot?.dockable) return;
           e.dataTransfer.setData('text/kreamet-panel', slot.id);
           e.dataTransfer.effectAllowed = 'move';
         }}
@@ -72,7 +72,7 @@ export function Section({
         <span className={`chev ${open ? 'open' : ''}`}>▶</span>
         <h2>{title}</h2>
         {right}
-        {slot && <DockControls slot={slot} />}
+        {slot?.dockable && <DockControls slot={slot} />}
       </header>
       {open && <div className="body">{children}</div>}
     </div>

@@ -1727,3 +1727,333 @@ ul.checks li {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ------------------------------------------------------------------ */
+/* Workbench header tools: favourite star and the panel layout menu    */
+/* ------------------------------------------------------------------ */
+
+/* Visually hidden but read by screen readers and counted in the outline.
+   Absolutely positioned, so it never claims a cell in the .app grid. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Six routes plus the design tools do not fit beside the long subtitle on a
+   laptop screen; the subtitle is the one thing the panels already repeat. */
+@media (max-width: 1480px) {
+  .sitenav-container .sub {
+    display: none;
+  }
+}
+
+.sitenav-actions .star {
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--text-dim);
+}
+
+.sitenav-actions .star.on {
+  color: var(--accent);
+  border-color: #3a3227;
+}
+
+.panelmenu {
+  position: relative;
+}
+
+.panelmenu-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.panelmenu-toggle .dim {
+  color: var(--text-faint);
+  margin-left: 2px;
+}
+
+.panelmenu-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 380px;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.panelmenu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.panelmenu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.panelmenu-actions button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.panelmenu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.panelmenu-table th,
+.panelmenu-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #1c232d;
+  text-align: left;
+}
+
+.panelmenu-table thead th {
+  color: var(--text-faint);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.panelmenu-table tbody th {
+  font-weight: 500;
+}
+
+.panelmenu-table tr.is-hidden th {
+  color: var(--text-faint);
+}
+
+.panelmenu-table td:not(:nth-child(3)) {
+  text-align: center;
+}
+
+.panelmenu-table select {
+  font-size: 11px;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+@media (max-width: 560px) {
+  /* These two stay on a phone: the star and the panel menu are the only way
+     to save a design or bring a hidden panel back from the header. */
+  .sitenav-actions .star,
+  .sitenav-actions .panelmenu-toggle,
+  .sitenav-actions .panelmenu-pop button,
+  /* The blanket rule above also caught the EN/TR switch, which left phones
+     with no way to change language at all. */
+  .sitenav-actions .langswitch button {
+    display: inline-block;
+  }
+
+  /* Icon only: the label and the count would push the language switch off
+     the edge of a 390 px screen. The button keeps its accessible name. */
+  .panelmenu-toggle .label,
+  .panelmenu-toggle .dim {
+    display: none;
+  }
+
+  .panelmenu-pop {
+    position: fixed;
+    top: 56px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Favourite mechanisms                                                */
+/* ------------------------------------------------------------------ */
+
+.page.favorites h1 {
+  font-size: 26px;
+  margin: 0;
+}
+
+.favtoolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 22px 0 18px;
+}
+
+.favempty {
+  padding: 22px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+}
+
+.favgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.favcard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.favcard header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.favcard h3 {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.linkish {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 11px;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.favmeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.favmeta .good {
+  color: var(--good);
+}
+
+.favmeta .bad {
+  color: var(--bad);
+}
+
+.favmeta .dim {
+  color: var(--text-faint);
+}
+
+.favactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.favactions .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.btn.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.runner {
+  background: #10141a;
+  border: 1px solid #1c232d;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.runner svg {
+  display: block;
+  width: 100%;
+  height: 200px;
+}
+
+.runner-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid #1c232d;
+}
+
+.runner-controls input[type='range'] {
+  flex: 1;
+}
+
+.runner-controls .mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  min-width: 36px;
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.runner-empty {
+  padding: 30px 12px;
+  text-align: center;
+  color: var(--bad);
+  font-size: 12px;
+}
+
+.shippedlist {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.shippedlist li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shippedlist li > span:first-child {
+  flex: 1 1 160px;
+}
+
+.shippedlist .mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.page.favorites h2 {
+  margin-top: 40px;
+  font-size: 17px;
+}
+
+.page.favorites .dim {
+  color: var(--text-faint);
+}
