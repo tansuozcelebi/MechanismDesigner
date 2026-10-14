@@ -39,8 +39,12 @@ describe('automerge rules', () => {
     expect(evaluate(pr(), [...green, run('x', 'completed', 'skipped')]).ok).toBe(true);
   });
 
-  it('ignores its own running job', () => {
-    expect(evaluate(pr(), [...green, run('Auto-merge ready pull requests', 'in_progress', null)]).ok).toBe(true);
+  it('ignores its own running job, which also makes GitHub report the PR unstable', () => {
+    const self = run('Auto-merge ready pull requests', 'in_progress', null);
+    expect(evaluate(pr({ mergeable_state: 'unstable' }), [...green, self]).ok).toBe(true);
+    // Unstable because a real check failed is still refused, by the check rule.
+    expect(evaluate(pr({ mergeable_state: 'unstable' }), [...green, run('x', 'completed', 'failure')]).ok).toBe(false);
+    expect(evaluate(pr({ mergeable_state: 'blocked' }), green).ok).toBe(false);
   });
 
   it('refuses drafts, closed PRs, other bases, conflicts and unlabelled PRs', () => {

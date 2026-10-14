@@ -68,6 +68,12 @@ jobs:
           PR: ${{ inputs.pr }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
+          # Until the script itself has reached the default branch (the PR
+          # that introduces it), there is nothing to run: say so, not fail.
+          if [ ! -f scripts/automerge.mjs ]; then
+            echo "::notice::scripts/automerge.mjs is not on the default branch yet; nothing to do."
+            exit 0
+          fi
           args="--dispatch-ci"
           if [ -n "$PR" ]; then args="$args --pr $PR"; fi
           if [ "$DRY_RUN" = "true" ]; then args="$args --dry-run"; fi

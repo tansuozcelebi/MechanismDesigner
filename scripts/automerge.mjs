@@ -16,7 +16,8 @@
  * opened, before CI had even started. Here a PR merges only when:
  *
  *   - it is open, not a draft, and targets the default branch;
- *   - GitHub reports it mergeable with no conflict (`mergeable_state: clean`);
+ *   - GitHub reports it mergeable with no conflict (`clean`, or `unstable`
+ *     when the only non-green check is this job itself);
  *   - its head commit has at least one check run, every check run has
  *     finished, and none of them failed;
  *   - its head has not moved since those checks were read (the merge is
@@ -52,7 +53,10 @@ export function evaluate(pr, checkRuns, { defaultBranch = 'main', requireLabel =
     return { ok: false, reason: `has no "${LABEL}" label` };
   if (pr.mergeable === false || pr.mergeable_state === 'dirty')
     return { ok: false, reason: 'has a merge conflict' };
-  if (pr.mergeable_state !== 'clean')
+  // `unstable` only means some check on the head is not green — which is
+  // also true while this very job is running on it. The check runs are
+  // judged below, more strictly than GitHub does, so it is not a veto here.
+  if (pr.mergeable_state !== 'clean' && pr.mergeable_state !== 'unstable')
     return { ok: false, reason: `is not cleanly mergeable yet (${pr.mergeable_state ?? 'unknown'})` };
 
   const runs = checkRuns.filter((c) => !SELF_CHECKS.has(c.name));
