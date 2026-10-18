@@ -160,8 +160,12 @@ describe('panel layout', () => {
 });
 
 describe('navigation', () => {
-  it('has Designer, Optimiser, Runner and Favourite Mechanisms in that order', () => {
-    expect(ROUTES.slice(0, 4)).toEqual(['designer', 'optimizer', 'runner', 'favorites']);
+  it('has Designer (with Free Sketch in its menu), Optimiser, Runner and Favourite Mechanisms in that order', () => {
+    expect(ROUTES.slice(0, 5)).toEqual(['designer', 'sketch', 'optimizer', 'runner', 'favorites']);
+    const NAV = read('../src/ui/SiteNav.tsx');
+    // Sketch is reached from the Design menu, not as a sixth top-level link.
+    expect(NAV).toMatch(/ROUTES\.filter\(\(r\) => r !== 'sketch'\)/);
+    expect(NAV).toMatch(/\{ r: 'sketch', label: 'nav\.sketch'/);
   });
 
   it('treats the three workbench views as one mounted app', () => {

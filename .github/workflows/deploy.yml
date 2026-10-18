@@ -119,12 +119,14 @@ jobs:
             dist/llms-full.txt \
             dist/og-image.png \
             dist/tr/index.html \
+            dist/tr/serbest-tasarim/index.html \
             dist/tr/optimizasyon/index.html \
             dist/tr/calistirici/index.html \
             dist/tr/favori-mekanizmalar/index.html \
             dist/tr/hakkinda/index.html \
             dist/tr/mekanizma-teknigi/index.html \
             dist/en/index.html \
+            dist/en/sketch/index.html \
             dist/en/optimizer/index.html \
             dist/en/runner/index.html \
             dist/en/favorites/index.html \

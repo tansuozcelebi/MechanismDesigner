@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 198 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (87 checks)
+npm test           # 210 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (94 checks)
 npm run audit      # SEO/AEO audit of dist/ (also run at the end of every build)
 npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run deploy:dry # what a deploy would change, without changing it
@@ -28,8 +28,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (198) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 87-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (210) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 94-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -57,6 +57,7 @@ build works from a file path or a project subdirectory without server rewrites.
 | Route | Page |
 |---|---|
 | `#/designer` | The synthesis and simulation workbench (the landing route) |
+| `#/sketch` | **Free Sketch** — build any linkage from pivots, joints and links, run it, trace its paths |
 | `#/optimizer` | The same workbench with the optimiser and what it scores against in front |
 | `#/runner` | The same workbench set up to watch the mechanism move: motor on, live readouts |
 | `#/favorites` | **Favourite Mechanisms** — saved designs, each runnable in place |
@@ -151,6 +152,53 @@ Pinned (non-dockable) panels are shared by all three: whether a panel should
 move is about how you work with it, not which view it is in.
 
 Arriving in the runner starts the motor; leaving it does not stop it.
+
+## Free Sketch
+
+**Design ▾ → Free Sketch** (`#/sketch`) builds a linkage by hand instead of
+from the dyad families: as many ground pivots, joints and links as you like,
+one motor crank, and the paths of any points you choose.
+
+| Key | Tool |
+|---|---|
+| V | Select / move — drag a point and the links it carries take the new length; drag empty space to pan |
+| G | Ground pivot — click empty space to add one, or a point to fix or free it |
+| J | Joint — a free point |
+| L | Link — click two points (empty space adds a joint); keeps chaining, Esc stops |
+| M | Motor crank — a link with exactly one end on a ground pivot |
+| T | Trace — draw this point's path |
+| Wheel | On a selected link: ±1 mm (Shift ±10, Alt ±0.1) while the paths update; otherwise zoom |
+
+Space runs, Ctrl+Z / Ctrl+Y undo and redo, F fits the view, Delete removes the
+selection; a near miss on a point counts as the point, so grid snapping cannot
+create a second joint a few pixels from a pivot.
+
+The workbench solves dyad chains in closed form, which a free sketch does not
+promise to be. So `src/sketch/model.ts` treats every link as a distance
+constraint and solves the free points by damped least squares
+(Levenberg–Marquardt), each frame starting from the previous one so the
+linkage stays on one assembly branch; a frame-to-frame jump is reported as a
+lock, not drawn as a path that teleports. A crank that cannot turn fully is
+played back and forth between its limits.
+
+The analysis panel reports what to check before anything else: mobility
+`M = 2·free points − links` (one motor needs M = 1), full rotation or the
+angle it locks at, the smallest transmission angle over the cycle at every
+two-link joint (the 40°–140° band), and — when the motor drives a four-bar —
+its Grashof class and whether the crank itself can turn. The **Design method**
+panel walks through type, number and dimensional synthesis, analysis and
+refinement, and the same text is the crawlable `/en/sketch/` page.
+
+## Choosing optimiser parameters
+
+The optimiser panel now explains its own settings (also on `/en/optimizer/`):
+population as 4–10 × the design variables, generations long enough to reach
+the 720-frame stage (which starts at 85 % of the run), restarts as the cheap
+way out of a poor valley, and what to change for each way a result can
+disappoint — no feasible designs, a poor shape, a mechanism near a dead
+point, colliding bars. **Quick check** and **Thorough** set population,
+generations and runs in one click, the thorough population scaled to the
+mechanism size, and the panel shows the evaluation count a run will cost.
 
 ## Favourite mechanisms
 
@@ -329,7 +377,7 @@ page and the workbench had no `<h1>` (both now carry a visually hidden one),
 the document title never changed between views (it now names the view), and
 below 560 px the rule that hides the header's design buttons also hid the
 **EN/TR switch**, so a phone had no way to change language. `tests/seo.test.ts`
-(29 of the 198 tests) runs the real generator into a temporary directory and
+(29 of the 210 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a
@@ -360,8 +408,11 @@ Two details in the workflow matter. The script is checked out from `main`,
 never from the PR: the job holds a write token, and running the branch's own
 code would let it rewrite its judge. And a merge made with the workflow's
 `GITHUB_TOKEN` does not trigger other workflows, so the push to `main` would
-not run CI and the deploy chained to CI would never fire; `--dispatch-ci`
-starts CI on `main` explicitly after a merge. Locally, through `gh`, the merge
+not run CI and the deploy chained to CI would never fire. Dispatching CI
+instead does not fix it — the first auto-merged PR (#17) showed CI running
+green on `main` and no deploy, because a run started by the bot raises no
+`workflow_run` event — so `--dispatch-deploy` starts the deploy directly,
+pinned to the merge commit. Locally, through `gh`, the merge
 is made with your own credentials and the push triggers CI normally, so the
 flag is not needed there.
 

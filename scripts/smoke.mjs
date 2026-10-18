@@ -754,6 +754,75 @@ await page.click('.sitenav a:has-text("Designer")');
 await page.waitForTimeout(400);
 
 /* ------------------------------------------------------------------ */
+/* Free Sketch                                                         */
+/* ------------------------------------------------------------------ */
+
+// A block of its own, so its names cannot collide with the rest of the script.
+{
+await page.click('.navcaret');
+await page.waitForTimeout(200);
+check('the Design menu offers the workbench and the Free Sketch', (await page.locator('.navmenu a').count()) === 2);
+await page.click('.navmenu a:has-text("Free Sketch")');
+await page.waitForTimeout(1000);
+check('the Free Sketch opens on a runnable example', (await page.locator('.sketch-canvas [data-joint]').count()) >= 4);
+check(
+  'the example has one degree of freedom and turns fully',
+  /M = 2·3 − 5 = 1/.test(await page.locator('.sketch-side').innerText()) &&
+    /Full rotation/.test(await page.locator('.sketch-side').innerText()),
+);
+check('the traced path is drawn', (await page.locator('.sketch-canvas path.trace').count()) >= 1);
+
+const angle0 = await page.locator('.sketch-play .mono').first().innerText();
+await page.click('.sketch-play button');
+await page.waitForTimeout(800);
+await page.click('.sketch-play button');
+check('Run turns the crank', (await page.locator('.sketch-play .mono').first().innerText()) !== angle0);
+
+const coupler = await page.locator('[data-link="L2"] .hitline').boundingBox();
+await page.mouse.click(coupler.x + coupler.width / 2, coupler.y + coupler.height / 2);
+await page.waitForTimeout(200);
+const skLenBefore = Number(await page.locator('.sketch-side input[type=number]').inputValue());
+for (let i = 0; i < 3; i++) {
+  await page.mouse.wheel(0, -100);
+  await page.waitForTimeout(80);
+}
+await page.waitForTimeout(200);
+const skLenAfter = Number(await page.locator('.sketch-side input[type=number]').inputValue());
+check('the mouse wheel lengthens the selected link', Math.abs(skLenAfter - skLenBefore - 3) < 0.01, `${skLenBefore} -> ${skLenAfter}`);
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(200);
+
+page.once('dialog', (d) => d.accept());
+await page.click('.sketch-toolbar button:has-text("Clear")');
+await page.waitForTimeout(200);
+const sk = await page.locator('.sketch-canvas svg').boundingBox();
+const at = (x, y) => [sk.x + sk.width / 2 + x, sk.y + sk.height / 2 - y];
+const pin = async (id) => {
+  const bb = await page.locator(`[data-joint="${id}"] .pin`).boundingBox();
+  return [bb.x + bb.width / 2, bb.y + bb.height / 2];
+};
+await page.keyboard.press('g');
+await page.mouse.click(...at(-200, -100));
+await page.mouse.click(...at(100, -100));
+await page.keyboard.press('l');
+await page.mouse.click(...(await pin('P1')));
+await page.mouse.click(...at(-200, -20));
+await page.mouse.click(...at(60, 80));
+await page.mouse.click(...(await pin('P2')));
+await page.keyboard.press('Escape');
+await page.keyboard.press('m');
+const crank = await page.locator('[data-link="L1"] .hitline').boundingBox();
+await page.mouse.click(crank.x + crank.width / 2, crank.y + crank.height / 2);
+await page.waitForTimeout(300);
+const built = await page.locator('.sketch-side').innerText();
+check('a four-bar built from scratch has M = 1 and a motor that turns', /= 1\b/.test(built) && /Full rotation/.test(built), built.split('\n').slice(0, 6).join(' | '));
+await page.keyboard.press('v');
+await page.evaluate(() => window.localStorage.removeItem('kreamet.sketch'));
+await page.click('.sitenav a:has-text("Designer")');
+await page.waitForTimeout(800);
+}
+
+/* ------------------------------------------------------------------ */
 /* Phone layout                                                        */
 /* ------------------------------------------------------------------ */
 

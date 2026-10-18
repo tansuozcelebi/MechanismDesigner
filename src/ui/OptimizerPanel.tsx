@@ -4,7 +4,8 @@ import { paramCount, type MechanismSpec } from '../mechanism/spec';
 import type { TargetCurve } from '../synthesis/targetCurve';
 import type { SolutionSummary, WorkerResponse } from '../workers/optimization.worker';
 import type { OptimizerProgress } from '../synthesis/optimizer';
-import { useT } from '../i18n';
+import { useI18n, useT } from '../i18n';
+import { OPTIMIZER_GUIDE } from '../content/methodology';
 import { Section, num } from './primitives';
 import type { SavedSolution } from '../app/solutionStore';
 
@@ -37,6 +38,7 @@ export function OptimizerPanel({
   source: 'stored' | 'live';
 }) {
   const t = useT();
+  const { lang } = useI18n();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<OptimizerProgress | null>(null);
   const [runInfo, setRunInfo] = useState({ run: 0, total: 0 });
@@ -163,6 +165,38 @@ export function OptimizerPanel({
           </label>
         </div>
 
+        {/* One-click settings from the guide below, scaled to this mechanism's
+            size: the population rule of thumb is a multiple of the number of
+            design variables, so the same button suits a 4-bar and a 14-bar. */}
+        <div className="row opt-presets">
+          <span className="note">{t('opt.presets')}</span>
+          <button
+            disabled={running}
+            onClick={() => {
+              setPopulation(40);
+              setGenerations(80);
+              setRuns(1);
+            }}
+            title={t('opt.presetQuickHint')}
+          >
+            {t('opt.presetQuick')}
+          </button>
+          <button
+            disabled={running}
+            onClick={() => {
+              setPopulation(Math.min(250, Math.max(100, 8 * paramCount(spec))));
+              setGenerations(250);
+              setRuns(4);
+            }}
+            title={t('opt.presetThoroughHint')}
+          >
+            {t('opt.presetThorough')}
+          </button>
+        </div>
+        <div className="note">
+          {t('opt.cost', { n: (population * generations * runs).toLocaleString() })}
+        </div>
+
         <div className="row">
           {!running ? (
             <button className="primary" onClick={start} style={{ flex: 1 }}>
@@ -220,6 +254,18 @@ export function OptimizerPanel({
             target: target.name,
           })}
         </div>
+
+        <details className="guide">
+          <summary>{t('opt.guide')}</summary>
+          {OPTIMIZER_GUIDE.map((g) => (
+            <div key={g.title.en}>
+              <h3>{g.title[lang]}</h3>
+              {g.body.map((b) => (
+                <p key={b.en.slice(0, 32)}>{b[lang]}</p>
+              ))}
+            </div>
+          ))}
+        </details>
       </Section>
 
       {saved.length > 0 && (

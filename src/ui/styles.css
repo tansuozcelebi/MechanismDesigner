@@ -2098,3 +2098,486 @@ ul.checks li {
   font-size: 12px;
   pointer-events: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* Design menu in the nav                                              */
+/* ------------------------------------------------------------------ */
+
+.navgroup {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.navgroup > a {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.navcaret {
+  padding: 4px 6px;
+  font-size: 10px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  border-radius: 0 4px 4px 0;
+}
+
+.navgroup.active .navcaret {
+  color: var(--accent);
+  border-color: #3a3227;
+  background: #1c1a15;
+  border-left-color: transparent;
+}
+
+.navcaret:hover {
+  color: var(--text);
+}
+
+.navmenu {
+  position: fixed;
+  z-index: 80;
+  width: 290px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.navmenu a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.navmenu a:hover,
+.navmenu a.active {
+  background: var(--panel-alt);
+}
+
+.navmenu a.active strong {
+  color: var(--accent);
+}
+
+.navmenu strong {
+  display: block;
+  font-size: 13px;
+}
+
+.navmenu span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Guides (optimiser parameters, design method)                        */
+/* ------------------------------------------------------------------ */
+
+details.guide {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: var(--panel-alt);
+}
+
+details.guide summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+details.guide h3 {
+  font-size: 12px;
+  margin: 12px 0 4px;
+  color: var(--text);
+}
+
+details.guide p {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.opt-presets {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.opt-presets .note {
+  margin: 0;
+}
+
+.opt-presets button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Free Sketch                                                         */
+/* ------------------------------------------------------------------ */
+
+.sketch-app {
+  display: grid;
+  grid-template-rows: 46px 1fr;
+  height: 100%;
+}
+
+.sketch {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+
+.sketch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.sketch-toolbar .tools,
+.sketch-toolbar .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.sketch-toolbar button {
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.sketch-toolbar button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #1c1a15;
+}
+
+.sketch-toolbar select {
+  font-size: 12px;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.sketch-main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  min-height: 0;
+}
+
+.sketch-canvas {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  min-width: 0;
+}
+
+.sketch-canvas svg {
+  display: block;
+  touch-action: none;
+  user-select: none;
+}
+
+.sketch-canvas svg.tool-select {
+  cursor: default;
+}
+
+.sketch-canvas svg.tool-ground,
+.sketch-canvas svg.tool-joint,
+.sketch-canvas svg.tool-link {
+  cursor: crosshair;
+}
+
+.sketch-canvas .grid line {
+  stroke: #161c25;
+  stroke-width: 1;
+}
+
+.sketch-canvas .grid line.major {
+  stroke: #1e2633;
+}
+
+.sketch-canvas .trace {
+  fill: none;
+  stroke: var(--led);
+  stroke-width: 1.6;
+  stroke-opacity: 0.85;
+}
+
+.sketch-canvas .link .hitline {
+  stroke: transparent;
+  stroke-width: 16;
+  cursor: pointer;
+}
+
+.sketch-canvas .link .bar {
+  stroke: #8fb4dd;
+  stroke-linecap: round;
+  stroke-opacity: 0.9;
+  pointer-events: none;
+}
+
+.sketch-canvas .link.motor .bar {
+  stroke: var(--accent);
+}
+
+.sketch-canvas .link.selected .bar {
+  stroke: #ffffff;
+}
+
+.sketch-canvas .link .len {
+  fill: var(--text-dim);
+  font: 11px var(--mono);
+  pointer-events: none;
+}
+
+.sketch-canvas .link.selected .len {
+  fill: var(--accent);
+}
+
+.sketch-canvas .rubber {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
+}
+
+.sketch-canvas .joint {
+  cursor: pointer;
+}
+
+.sketch-canvas .joint .hit {
+  fill: transparent;
+}
+
+.sketch-canvas .joint .pin {
+  fill: #0e1116;
+  stroke: #dbe3ee;
+  stroke-width: 2;
+}
+
+.sketch-canvas .joint.ground .pin {
+  fill: #61708a;
+}
+
+.sketch-canvas .joint .base {
+  fill: #242c38;
+  stroke: #61708a;
+  stroke-width: 1.5;
+}
+
+.sketch-canvas .joint.tracer .pin {
+  stroke: var(--led);
+  stroke-width: 3;
+}
+
+.sketch-canvas .joint.selected .pin,
+.sketch-canvas .joint.start .pin {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.sketch-canvas .joint .label {
+  fill: var(--text-faint);
+  font: 10px var(--mono);
+  pointer-events: none;
+}
+
+.sketch-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+.sketch-hint {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  max-width: 640px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(14, 17, 22, 0.8);
+  padding: 6px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.sketch-msg {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #2a1a1a;
+  border: 1px solid var(--bad);
+  color: #f2b8b8;
+  font-size: 12px;
+}
+
+.sketch-play {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  background: rgba(21, 26, 33, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.sketch-play label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex: 1 1 200px;
+}
+
+.sketch-play input[type='range'] {
+  flex: 1;
+}
+
+.sketch-play .mono {
+  font-family: var(--mono);
+  color: var(--text);
+  min-width: 52px;
+  text-align: right;
+}
+
+.sketch-play .icon.paused {
+  background: #1d6b56;
+  border-color: #2a8a70;
+  color: #fff;
+}
+
+.sketch-side {
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  padding: 12px 14px 40px;
+}
+
+.sketch-side section {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sketch-side h2 {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.sketch-side p {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.sketch-side .mono {
+  font-family: var(--mono);
+}
+
+.sketch-side .small {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.sketch-side .good {
+  color: var(--good);
+}
+
+.sketch-side .warn {
+  color: var(--warn);
+}
+
+.sketch-side .row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sketch-side .lenrow {
+  align-items: flex-end;
+}
+
+.sketch-side .field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.sketch-side input[type='number'] {
+  width: 100%;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-family: var(--mono);
+}
+
+.sketch-side button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 820px) {
+  .sketch-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .sketch-side {
+    max-height: 40vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .sketch-toolbar .tools button {
+    padding: 6px 8px;
+  }
+}
+
+.sketch-toolbar select {
+  width: auto;
+}
