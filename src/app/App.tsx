@@ -49,7 +49,7 @@ import {
 import { HoverHint } from '../ui/HoverHint';
 import { TorqueChart } from '../ui/TorqueChart';
 import { Section, SectionGroup, type SectionGroupCommand } from '../ui/primitives';
-import { DockSlot, useDockLayout, type Dock } from '../ui/dock';
+import { DRAG_OFFSET_TYPE, DRAG_TYPE, DockSlot, useDockLayout, type Dock } from '../ui/dock';
 import { PanelLayoutMenu } from '../ui/PanelLayoutMenu';
 import type { Workspace } from './router';
 import {
@@ -225,6 +225,17 @@ export default function App({
   const compact = useCompactLayout();
   const dock = useDockLayout(workspace);
   const [drawer, setDrawer] = useState<'left' | 'right' | null>(null);
+  /** Which drop zone a dragged panel is over, so only that one lights up. */
+  const [dropZone, setDropZone] = useState<Dock | null>(null);
+  useEffect(() => {
+    const clear = () => setDropZone(null);
+    window.addEventListener('dragend', clear);
+    window.addEventListener('drop', clear);
+    return () => {
+      window.removeEventListener('dragend', clear);
+      window.removeEventListener('drop', clear);
+    };
+  }, []);
   const [groupCommand, setGroupCommand] = useState<SectionGroupCommand | null>(null);
 
   const collapseAll = useCallback(
@@ -918,41 +929,114 @@ export default function App({
     def: WORKSPACE_DEFAULTS[workspace][p.id] ?? p.def,
   }));
 
+  const allIds: string[] = panels.map((p) => p.id);
+  // Display order: the reader's, where they have rearranged anything, and
+  // registration order for everything else.
+  const rank = (id: string) => {
+    const i = dock.order.indexOf(id);
+    return i >= 0 ? i : 1000 + allIds.indexOf(id);
+  };
+  const ordered = [...panels].sort((a, b) => rank(a.id) - rank(b.id));
+
+  /**
+   * Where a panel is drawn. A phone has no room to float anything over the
+   * canvas — the canvas is the one thing that must stay visible — so there a
+   * floating panel lives in the design drawer instead, keeping its place for
+   * when the window is wide again.
+   */
+  const placeOf = (p: PanelDef): Dock => {
+    const d = dock.dockOf(p.id, p.def);
+    return d === 'float' && compact ? 'left' : d;
+  };
+
+  const slot = (p: PanelDef, where: Dock) => (
+    <DockSlot key={p.id} id={p.id} dock={where} move={dock.move} dockable={dock.isDockable(p.id)}>
+      {p.node}
+    </DockSlot>
+  );
+
   const renderDock = (where: Dock): ReactNode =>
-    panels
-      .filter((p) => dock.dockOf(p.id, p.def) === where)
+    ordered
+      .filter((p) => placeOf(p) === where)
       .map((p) => (
-        <DockSlot
-          key={p.id}
-          id={p.id}
-          dock={where}
-          move={dock.move}
-          dockable={dock.isDockable(p.id)}
-        >
-          {p.node}
-        </DockSlot>
+        <div key={p.id} className="dock-panel" data-panel-id={p.id}>
+          {slot(p, where)}
+        </div>
       ));
+
+  const floating = compact ? [] : ordered.filter((p) => placeOf(p) === 'float');
 
   const hiddenPanels = panels.filter((p) => dock.dockOf(p.id, p.def) === 'hidden');
   // A panel that starts hidden in this workspace has no dock of its own to
   // return to; the tray brings it back on the left.
-  const homeOf = (p: PanelDef): Dock => (p.def === 'hidden' ? 'left' : p.def);
+  const homeOf = (p: PanelDef): Dock => (p.def === 'hidden' || p.def === 'float' ? 'left' : p.def);
 
-  /** Accept a panel dragged onto a dock. */
+  const isPanelDrag = (e: React.DragEvent) => e.dataTransfer.types.includes(DRAG_TYPE);
+
+  /**
+   * Accept a panel dragged onto a dock, at the place it was dropped: above
+   * the panel under the pointer if it was dropped on that panel's upper half,
+   * below it otherwise. Moving a panel within its own dock is the same
+   * gesture, so the order of a dock is rearranged by dragging too.
+   */
   const dropHandlers = (where: Dock) => ({
     onDragOver: (e: React.DragEvent) => {
-      if (e.dataTransfer.types.includes('text/kreamet-panel')) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-      }
+      if (!isPanelDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (dropZone !== where) setDropZone(where);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropZone(null);
     },
     onDrop: (e: React.DragEvent) => {
-      const id = e.dataTransfer.getData('text/kreamet-panel');
+      const id = e.dataTransfer.getData(DRAG_TYPE);
       if (!id) return;
       e.preventDefault();
+      setDropZone(null);
+      const target = (e.target as HTMLElement).closest<HTMLElement>('[data-panel-id]');
+      let before: string | null = null;
+      if (target && target.dataset.panelId !== id) {
+        const r = target.getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) before = target.dataset.panelId ?? null;
+        else {
+          const next = target.nextElementSibling as HTMLElement | null;
+          before = next?.dataset.panelId ?? null;
+          if (before === id) before = (next?.nextElementSibling as HTMLElement | null)?.dataset.panelId ?? null;
+        }
+      } else if (target) {
+        // Dropped on itself: only the dock changes, the order stays.
+        dock.move(id, where);
+        return;
+      }
       dock.move(id, where);
+      dock.placeBefore(id, before, allIds);
     },
   });
+
+  /** Accept a panel dropped on the canvas: it floats where it was let go. */
+  const canvasDrop = compact
+    ? {}
+    : {
+        onDragOver: (e: React.DragEvent) => {
+          if (!isPanelDrag(e)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (dropZone !== 'float') setDropZone('float');
+        },
+        onDragLeave: (e: React.DragEvent) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropZone(null);
+        },
+        onDrop: (e: React.DragEvent) => {
+          const id = e.dataTransfer.getData(DRAG_TYPE);
+          if (!id || !wrapRef.current) return;
+          e.preventDefault();
+          setDropZone(null);
+          const [dx, dy] = (e.dataTransfer.getData(DRAG_OFFSET_TYPE) || '0,0').split(',').map(Number);
+          const r = wrapRef.current.getBoundingClientRect();
+          dock.floatAt(id, { x: e.clientX - r.left - (dx || 0), y: e.clientY - r.top - (dy || 0) }, allIds);
+        },
+      };
 
   /** Drawer header: what it is, collapse-all, and a way out. */
   const drawerHead = (title: string) => (
@@ -1030,13 +1114,43 @@ export default function App({
             <button onClick={exportDesign}>{t('app.export')}</button>
           </div>
         )}
-        <div className="dock" {...dropHandlers('left')}>
+        <div className={`dock${dropZone === 'left' ? ' drop-target' : ''}`} {...dropHandlers('left')}>
           <SectionGroup command={groupCommand}>{renderDock('left')}</SectionGroup>
         </div>
       </aside>
 
-      <div className="canvas-wrap" ref={wrapRef}>
+      <div
+        className={`canvas-wrap${dropZone === 'float' ? ' drop-float' : ''}`}
+        ref={wrapRef}
+        {...canvasDrop}
+      >
         <canvas ref={canvasRef} />
+        {/* Floating panels: dragged out of a dock onto the canvas, and moved
+            around it by dragging their header again. Drawn after the canvas
+            so they sit above it; the last one placed is on top. */}
+        <SectionGroup command={groupCommand}>
+          {floating.map((p, i) => {
+            const pos = dock.floatPos(p.id) ?? { x: 16 + i * 28, y: 16 + i * 28 };
+            return (
+              <div
+                key={p.id}
+                className="floating dock-panel"
+                data-panel-id={p.id}
+                style={{
+                  left: `clamp(0px, ${pos.x}px, calc(100% - 160px))`,
+                  top: `clamp(0px, ${pos.y}px, calc(100% - 48px))`,
+                  zIndex: 20 + i,
+                }}
+                onPointerDown={() => {
+                  if (floating[floating.length - 1]?.id !== p.id) dock.placeBefore(p.id, null, allIds);
+                }}
+              >
+                {slot(p, 'float')}
+              </div>
+            );
+          })}
+        </SectionGroup>
+        {dropZone === 'float' && <div className="float-hint">{t('dock.floatHint')}</div>}
         <div className="overlay tl">
           <div>θ = {radToDeg(degrees).toFixed(2)}°</div>
           <div>LED ({pose ? pose.led.x.toFixed(1) : '—'}, {pose ? pose.led.y.toFixed(1) : '—'}) mm</div>
@@ -1086,7 +1200,7 @@ export default function App({
         aria-hidden={compact && drawer !== 'right'}
       >
         {compact && drawerHead(t('panels.resultsTitle'))}
-        <div className="dock" {...dropHandlers('right')}>
+        <div className={`dock${dropZone === 'right' ? ' drop-target' : ''}`} {...dropHandlers('right')}>
           <SectionGroup command={groupCommand}>{renderDock('right')}</SectionGroup>
           {/* Hidden panels have to be reachable from somewhere, or hiding one
               is a one-way door. This sits at the end of the right dock, which

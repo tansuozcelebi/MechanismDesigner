@@ -158,6 +158,7 @@ export function PanelLayoutMenu({
                       >
                         <option value="left">{t('layout.left')}</option>
                         <option value="right">{t('layout.right')}</option>
+                        <option value="float">{t('layout.float')}</option>
                       </select>
                     </td>
                     <td>
