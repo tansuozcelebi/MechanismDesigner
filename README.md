@@ -12,8 +12,8 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 195 unit + integration tests
-npm run smoke      # browser smoke test against a running dev server (83 checks)
+npm test           # 198 unit + integration tests
+npm run smoke      # browser smoke test against a running dev server (87 checks)
 npm run audit      # SEO/AEO audit of dist/ (also run at the end of every build)
 npm run build      # typecheck → bundle → generate the static/SEO surface
 npm run deploy:dry # what a deploy would change, without changing it
@@ -28,8 +28,8 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (195) → `build`, and uploads `dist` as an artifact |
-| **smoke** | installs Chromium, starts the dev server, runs the 83-check browser smoke test |
+| **verify** | `npm ci` → `typecheck` → `test` (198) → `build`, and uploads `dist` as an artifact |
+| **smoke** | installs Chromium, starts the dev server, runs the 87-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
 the app through the `window.__viewer` handle, which is deliberately stripped from production
@@ -96,6 +96,8 @@ reader and is remembered in `localStorage`.
 | | |
 |---|---|
 | Move | Drag a panel header onto a dock, or use the ← → buttons in its header |
+| Float | Drag a panel header onto the canvas, or ⧉: it floats where it was let go, and moves wherever its header is dragged next |
+| Reorder | Drop a panel on the upper or lower half of another to put it above or below |
 | Hide | The ✕ in the header; hidden panels are listed in a tray at the foot of the right dock |
 | Reset | Offered only once something has been moved |
 
@@ -103,6 +105,13 @@ reader and is remembered in `localStorage`.
 controls appear in the panel's own header — **no panel component knows that
 docking exists**, and a docked panel looks exactly like an undocked one. Adding
 a panel means adding one row to the registry in `App.tsx`.
+
+A floating panel is clamped to the canvas when drawn, so a position saved on a
+wide monitor cannot strand it off the edge of a laptop screen; the last one
+touched is on top. On a phone there is no room to cover the canvas, so a
+floating panel lives in the design drawer there and keeps its place for when the
+window is wide again. Order and floating positions are saved per workspace,
+beside the dock layout.
 
 The controls are `←` and `→` rather than `◀` `▶`: the triangles already mean
 *play* on the timeline, and one glyph should not mean two things. The smoke
@@ -320,7 +329,7 @@ page and the workbench had no `<h1>` (both now carry a visually hidden one),
 the document title never changed between views (it now names the view), and
 below 560 px the rule that hides the header's design buttons also hid the
 **EN/TR switch**, so a phone had no way to change language. `tests/seo.test.ts`
-(29 of the 195 tests) runs the real generator into a temporary directory and
+(29 of the 198 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a

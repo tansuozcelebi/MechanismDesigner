@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useDockSlot } from './dock';
+import { DRAG_OFFSET_TYPE, DRAG_TYPE, useDockSlot } from './dock';
 import { useT } from '../i18n';
 
 /**
@@ -59,7 +59,12 @@ export function Section({
         draggable={slot?.dockable === true}
         onDragStart={(e) => {
           if (!slot?.dockable) return;
-          e.dataTransfer.setData('text/kreamet-panel', slot.id);
+          e.dataTransfer.setData(DRAG_TYPE, slot.id);
+          // Where inside the panel the pointer grabbed it, so a panel dropped
+          // on the canvas lands under the pointer the way it was held rather
+          // than jumping to put its corner there.
+          const box = (e.currentTarget.closest('[data-panel-id]') ?? e.currentTarget).getBoundingClientRect();
+          e.dataTransfer.setData(DRAG_OFFSET_TYPE, `${e.clientX - box.left},${e.clientY - box.top}`);
           e.dataTransfer.effectAllowed = 'move';
         }}
         onKeyDown={(e) => {
@@ -104,6 +109,11 @@ function DockControls({ slot }: { slot: NonNullable<ReturnType<typeof useDockSlo
       {slot.dock !== 'right' && (
         <button title={t('dock.toRight')} aria-label={t('dock.toRight')} onClick={stop(() => slot.move('right'))}>
           →
+        </button>
+      )}
+      {slot.dock !== 'float' && (
+        <button title={t('dock.toFloat')} aria-label={t('dock.toFloat')} onClick={stop(() => slot.move('float'))}>
+          ⧉
         </button>
       )}
       <button title={t('dock.hide')} aria-label={t('dock.hide')} onClick={stop(() => slot.move('hidden'))}>

@@ -14,7 +14,7 @@ import { OPTIMIZED_SPEC, storedDesign } from '../src/app/designPresets';
 import { defaultSpec, paramLayout } from '../src/mechanism/spec';
 import { buildGeometry } from '../src/mechanism/mechanism';
 import { sweep } from '../src/kinematics/forwardSolver';
-import { parseLayout, storageKeyFor } from '../src/ui/dock';
+import { parseExtra, parseLayout, reorder, storageKeyFor } from '../src/ui/dock';
 import { ROUTES, WORKSPACES, isWorkspace, parseHash } from '../src/app/router';
 
 const read = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -115,6 +115,27 @@ describe('panel layout', () => {
       d: 'hidden',
     });
     for (const v of [null, 'x', [], 4]) expect(parseLayout(v)).toEqual({});
+  });
+
+  it('keeps floating as a dock, so a floated panel survives a reload', () => {
+    expect(parseLayout({ a: 'float' })).toEqual({ a: 'float' });
+  });
+
+  it('reorders by dropping before a panel, or at the end', () => {
+    const all = ['a', 'b', 'c', 'd'];
+    expect(reorder([], all, 'c', 'a')).toEqual(['c', 'a', 'b', 'd']);
+    expect(reorder([], all, 'a', null)).toEqual(['b', 'c', 'd', 'a']);
+    expect(reorder(['d', 'c', 'b', 'a'], all, 'a', 'c')).toEqual(['d', 'a', 'c', 'b']);
+    // Stale ids in a saved order are dropped, new ones join at the end.
+    expect(reorder(['zz', 'b'], all, 'd', 'b')).toEqual(['d', 'b', 'a', 'c']);
+  });
+
+  it('drops malformed floating positions instead of placing a panel at NaN', () => {
+    expect(parseExtra({ order: ['a', 3], pos: { a: { x: 10, y: 20 }, b: { x: 'x' }, c: null } })).toEqual({
+      order: ['a'],
+      pos: { a: { x: 10, y: 20 } },
+    });
+    expect(parseExtra(null)).toEqual({ order: [], pos: {} });
   });
 
   it('lets the panel menu control visibility, side and dockability of every panel', () => {

@@ -88,8 +88,8 @@ describe('section groups', () => {
     expect(PRIMITIVES).toMatch(/if \(!group \|\| group\.stamp === seen\.current\) return/);
   });
 
-  it('wraps both sidebars so one control collapses either one', () => {
-    expect(APP.match(/<SectionGroup command=\{groupCommand\}>/g)).toHaveLength(2);
+  it('wraps both sidebars and the floating panels so one control collapses them all', () => {
+    expect(APP.match(/<SectionGroup command=\{groupCommand\}>/g)).toHaveLength(3);
   });
 
   it('leaves each section independently collapsible', () => {

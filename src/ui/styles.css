@@ -2057,3 +2057,44 @@ ul.checks li {
 .page.favorites .dim {
   color: var(--text-faint);
 }
+
+/* ------------------------------------------------------------------ */
+/* Floating panels and drop zones                                      */
+/* ------------------------------------------------------------------ */
+
+.floating {
+  position: absolute;
+  width: 320px;
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* A floating panel's controls are always visible: there is no dock around
+   it to suggest that it can be put back. */
+.floating .dock-controls {
+  opacity: 1;
+}
+
+.canvas-wrap.drop-float {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
+}
+
+.float-hint {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  z-index: 50;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #1c1a15;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 12px;
+  pointer-events: none;
+}

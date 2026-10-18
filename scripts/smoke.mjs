@@ -667,6 +667,45 @@ check('Escape closes the panel menu', (await page.locator('.panelmenu-pop').coun
 await page.evaluate(() => window.localStorage.removeItem('kreamet.dock'));
 
 /* ------------------------------------------------------------------ */
+/* Free drag and drop                                                  */
+/* ------------------------------------------------------------------ */
+
+const headOf = (name) => page.locator(`.section header:has(h2:text-is("${name}"))`).first();
+await headOf('Motor & Physics').dragTo(page.locator('.canvas-wrap canvas'), { targetPosition: { x: 400, y: 300 } });
+await page.waitForTimeout(300);
+check('a panel dropped on the canvas floats there', (await page.locator('.floating').count()) === 1);
+const posA = await page.locator('.floating').first().evaluate((e) => e.style.top);
+await page.locator('.floating .section header').first().dragTo(page.locator('.canvas-wrap canvas'), {
+  targetPosition: { x: 420, y: 120 },
+});
+await page.waitForTimeout(300);
+const posB = await page.locator('.floating').first().evaluate((e) => e.style.top);
+check('a floating panel moves by dragging its header', posA !== posB, `${posA} -> ${posB}`);
+
+await page.locator('.floating .section header').first().dragTo(page.locator('.sidebar.right .dock'), {
+  targetPosition: { x: 100, y: 10 },
+});
+await page.waitForTimeout(300);
+check(
+  'a floating panel docks where it is dropped',
+  (await page.locator('.floating').count()) === 0 &&
+    (await page.locator('.sidebar.right .dock-panel').first().getAttribute('data-panel-id')) === 'motor',
+);
+
+await headOf('Display').dragTo(headOf('Mechanism'), { targetPosition: { x: 50, y: 3 } });
+await page.waitForTimeout(300);
+check(
+  'dragging within a dock reorders it',
+  (await page.locator('.sidebar.left .dock-panel').first().getAttribute('data-panel-id')) === 'display',
+);
+await page.evaluate(() => {
+  window.localStorage.removeItem('kreamet.dock');
+  window.localStorage.removeItem('kreamet.dock.extra');
+});
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+
+/* ------------------------------------------------------------------ */
 /* Optimiser, Runner and favourites                                    */
 /* ------------------------------------------------------------------ */
 
