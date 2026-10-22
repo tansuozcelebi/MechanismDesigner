@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
  * History API needs server-side rewrites that will not exist. A hash route needs
  * none of that and still gives every page a real, linkable URL.
  */
-export const ROUTES = ['designer', 'optimizer', 'runner', 'favorites', 'about', 'theory'] as const;
+export const ROUTES = ['designer', 'sketch', 'optimizer', 'runner', 'favorites', 'about', 'theory'] as const;
 export type Route = (typeof ROUTES)[number];
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { hrefFor, useRoute, ROUTES, type Route } from '../app/router';
 import { useT } from '../i18n';
 import { APP_NAME } from '../i18n/translations';
@@ -6,6 +6,7 @@ import { LanguageSwitch } from './LanguageSwitch';
 
 const LABEL_KEY = {
   designer: 'nav.designer',
+  sketch: 'nav.sketch',
   optimizer: 'nav.optimizer',
   runner: 'nav.runner',
   favorites: 'nav.favorites',
@@ -68,16 +69,20 @@ export function SiteNav({
       </a>
 
       <nav className="sitenav" aria-label={t('nav.main')} ref={navRef}>
-        {ROUTES.map((r) => (
-          <a
-            key={r}
-            href={hrefFor(r)}
-            className={r === route ? 'active' : ''}
-            aria-current={r === route ? 'page' : undefined}
-          >
-            {t(LABEL_KEY[r])}
-          </a>
-        ))}
+        {ROUTES.filter((r) => r !== 'sketch').map((r) =>
+          r === 'designer' ? (
+            <DesignMenu key={r} route={route} />
+          ) : (
+            <a
+              key={r}
+              href={hrefFor(r)}
+              className={r === route ? 'active' : ''}
+              aria-current={r === route ? 'page' : undefined}
+            >
+              {t(LABEL_KEY[r])}
+            </a>
+          ),
+        )}
       </nav>
 
       {subtitle && <span className="sub">{subtitle}</span>}
@@ -96,5 +101,94 @@ export function SiteNav({
         <LanguageSwitch />
       </div>
     </div>
+  );
+}
+
+/**
+ * The Design menu: the parametric workbench and the Free Sketch.
+ *
+ * "Designer" stays a plain link — one click to the workbench, as before —
+ * and the caret beside it opens the choice. The menu is positioned `fixed`
+ * from the caret's rectangle because on a phone the nav bar scrolls
+ * sideways, and an absolutely positioned child would be clipped by it.
+ */
+function DesignMenu({ route }: { route: Route }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState({ left: 0, top: 0 });
+  const caret = useRef<HTMLButtonElement | null>(null);
+  const menu = useRef<HTMLDivElement | null>(null);
+  const inGroup = route === 'designer' || route === 'sketch';
+
+  useEffect(() => setOpen(false), [route]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        caret.current?.focus();
+      }
+    };
+    const onDown = (e: PointerEvent) => {
+      const n = e.target as Node;
+      if (!menu.current?.contains(n) && !caret.current?.contains(n)) setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown);
+    };
+  }, [open]);
+
+  const items: { r: Route; label: 'nav.designerParam' | 'nav.sketch'; hint: 'nav.designerParamHint' | 'nav.sketchHint' }[] = [
+    { r: 'designer', label: 'nav.designerParam', hint: 'nav.designerParamHint' },
+    { r: 'sketch', label: 'nav.sketch', hint: 'nav.sketchHint' },
+  ];
+
+  return (
+    <span className={`navgroup${inGroup ? ' active' : ''}`}>
+      {/* Always "Designer" and always the workbench, so the link does the
+          same thing from every page; the group lights up for either item and
+          the menu marks which one is open. */}
+      <a
+        href={hrefFor('designer')}
+        className={inGroup ? 'active' : ''}
+        aria-current={route === 'designer' ? 'page' : undefined}
+      >
+        {t('nav.designer')}
+      </a>
+      <button
+        ref={caret}
+        className="navcaret"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t('nav.designerMenu')}
+        title={t('nav.designerMenu')}
+        onClick={() => {
+          const r = caret.current!.getBoundingClientRect();
+          setAt({ left: Math.max(8, Math.min(r.left - 120, window.innerWidth - 300)), top: r.bottom + 6 });
+          setOpen((o) => !o);
+        }}
+      >
+        ▾
+      </button>
+      {open && (
+        <div className="navmenu" role="menu" ref={menu} style={{ left: at.left, top: at.top }}>
+          {items.map((i) => (
+            <a
+              key={i.r}
+              role="menuitem"
+              href={hrefFor(i.r)}
+              className={route === i.r ? 'active' : ''}
+              onClick={() => setOpen(false)}
+            >
+              <strong>{t(i.label)}</strong>
+              <span>{t(i.hint)}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </span>
   );
 }

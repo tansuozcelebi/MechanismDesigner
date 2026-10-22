@@ -30,7 +30,7 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
-  # To start CI on main after a merge; see --dispatch-ci in the script.
+  # To start the deploy after a merge; see --dispatch-deploy in the script.
   actions: write
 
 # Two CI workflows finish at nearly the same moment; let them queue rather
@@ -74,7 +74,7 @@ jobs:
             echo "::notice::scripts/automerge.mjs is not on the default branch yet; nothing to do."
             exit 0
           fi
-          args="--dispatch-ci"
+          args="--dispatch-deploy"
           if [ -n "$PR" ]; then args="$args --pr $PR"; fi
           if [ "$DRY_RUN" = "true" ]; then args="$args --dry-run"; fi
           node scripts/automerge.mjs $args

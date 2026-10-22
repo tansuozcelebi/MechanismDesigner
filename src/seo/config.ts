@@ -33,7 +33,7 @@ export const abs = (path: string): string =>
 /* Pages                                                               */
 /* ------------------------------------------------------------------ */
 
-export type PageId = 'home' | 'optimizer' | 'runner' | 'favorites' | 'about' | 'theory';
+export type PageId = 'home' | 'sketch' | 'optimizer' | 'runner' | 'favorites' | 'about' | 'theory';
 
 export type PageMeta = {
   /** Crawlable path, one per language. Localised, because a Turkish keyword in
@@ -104,6 +104,47 @@ export const PAGES: Page[] = [
         'coupler curve',
         'Assur dyad',
         'mechanism theory',
+      ],
+    },
+  },
+  {
+    id: 'sketch',
+    priority: 0.8,
+    changefreq: 'monthly',
+    tr: {
+      path: '/tr/serbest-tasarim/',
+      appHash: '#/sketch',
+      nav: 'Serbest Tasarım',
+      heading: 'Serbest Tasarım — Sınırsız Mafsal ve Kolla Mekanizma Kurun, Çalıştırın',
+      title: 'Serbest Mekanizma Tasarımı ve Yörünge İzleme | KREAMET',
+      description:
+        'Tarayıcıda sınırsız sabit mafsal, kol ve eklemle düzlemsel mekanizma kurun; motor krankını ekleyip çalıştırın, noktaların yörüngesini izleyin, kolları fare tekerleğiyle canlı uzatıp kısaltın. Grashof, serbestlik derecesi ve iletim açısı anında hesaplanır.',
+      keywords: [
+        'mekanizma tasarımı',
+        'mekanizma simülasyonu',
+        'dört çubuk mekanizması',
+        'kavrayıcı eğrisi',
+        'Grashof',
+        'serbestlik derecesi',
+        'mekanizma tasarım metodolojisi',
+      ],
+    },
+    en: {
+      path: '/en/sketch/',
+      appHash: '#/sketch',
+      nav: 'Free Sketch',
+      heading: 'Free Sketch — Build Any Linkage from Pivots and Links, Then Run It',
+      title: 'Free Linkage Sketcher and Path Tracer | KREAMET',
+      description:
+        'Build a planar linkage in the browser from unlimited ground pivots, links and joints; add a motor crank, run it and trace the paths of its points, and lengthen or shorten links live with the mouse wheel. Grashof type, mobility and transmission angle update as you edit.',
+      keywords: [
+        'linkage design',
+        'linkage simulator',
+        'four-bar linkage',
+        'coupler curve',
+        'Grashof',
+        'mobility',
+        'mechanism design methodology',
       ],
     },
   },

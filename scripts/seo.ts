@@ -43,6 +43,7 @@ import {
   type FeatureContent,
   type QA,
 } from '../src/content/workspaces';
+import { METHODOLOGY, OPTIMIZER_GUIDE, SKETCH_FAQ } from '../src/content/methodology';
 import {
   blocksToHtml,
   escapeHtml,
@@ -103,7 +104,8 @@ function lastModified(files: string[]): string {
 /** The source files each page is generated from. */
 const SOURCES: Record<PageId, (lang: Lang) => string[]> = {
   home: () => ['src/content/about.ts', 'src/content/workspaces.ts', 'src/seo/config.ts'],
-  optimizer: () => ['src/content/workspaces.ts', 'src/seo/config.ts'],
+  sketch: () => ['src/content/methodology.ts', 'src/seo/config.ts'],
+  optimizer: () => ['src/content/workspaces.ts', 'src/content/methodology.ts', 'src/seo/config.ts'],
   runner: () => ['src/content/workspaces.ts', 'src/seo/config.ts'],
   favorites: () => ['src/content/workspaces.ts', 'src/seo/config.ts'],
   about: () => ['src/content/about.ts', 'src/seo/config.ts'],
@@ -421,7 +423,7 @@ function homeBody(lang: Lang): string {
     tr ? 'Mekanizma tekniği referansı' : 'Mechanism theory reference'
   }</a></p>
 <h2>${tr ? 'Uygulamanın bölümleri' : 'What is in the application'}</h2>
-<ul>${(['optimizer', 'runner', 'favorites'] as const)
+<ul>${(['sketch', 'optimizer', 'runner', 'favorites'] as const)
     .map((id) => {
       const p = pageById(id)[lang];
       return `<li><a href="${escapeHtml(abs(p.path))}">${escapeHtml(p.heading)}</a> — ${escapeHtml(
@@ -442,13 +444,22 @@ ${methods}
 ${faqHtml(HOME_FAQ, lang)}`;
 }
 
-const FEATURE_CONTENT: Record<'optimizer' | 'runner' | 'favorites', FeatureContent> = {
-  optimizer: OPTIMIZER_CONTENT,
+const guideSections = (items: typeof METHODOLOGY) =>
+  items.map((g) => ({ title: g.title, body: g.body }));
+
+/**
+ * The optimiser page also carries the parameter guide, and the sketch page
+ * the design method: the same text the app shows in its panels, so a reader
+ * arriving from a search finds the answer the app would have given them.
+ */
+const FEATURE_CONTENT: Record<'sketch' | 'optimizer' | 'runner' | 'favorites', FeatureContent> = {
+  sketch: { sections: guideSections(METHODOLOGY), faq: SKETCH_FAQ },
+  optimizer: { ...OPTIMIZER_CONTENT, sections: [...OPTIMIZER_CONTENT.sections, ...guideSections(OPTIMIZER_GUIDE)] },
   runner: RUNNER_CONTENT,
   favorites: FAVORITES_CONTENT,
 };
 
-function featureBody(lang: Lang, id: 'optimizer' | 'runner' | 'favorites'): string {
+function featureBody(lang: Lang, id: 'sketch' | 'optimizer' | 'runner' | 'favorites'): string {
   const m = pageById(id)[lang];
   const c = FEATURE_CONTENT[id];
   const tr = lang === 'tr';
@@ -548,7 +559,7 @@ for (const lang of LANGS) {
 
   // Optimiser, Runner, Favourites — one page per view of the application, so
   // a question about any of them has a URL that answers it.
-  for (const id of ['optimizer', 'runner', 'favorites'] as const) {
+  for (const id of ['sketch', 'optimizer', 'runner', 'favorites'] as const) {
     const page = pageById(id);
     written.push(
       write(
@@ -721,12 +732,15 @@ generated for reading; the interactive app lives at ${abs('/')}.
 ## Application
 
 - [Designer](${abs(pageById('home').en.path)}): ${pageById('home').en.description}
+- [Free Sketch](${abs(pageById('sketch').en.path)}): ${pageById('sketch').en.description}
 - [Optimiser](${abs(pageById('optimizer').en.path)}): ${pageById('optimizer').en.description}
 - [Runner](${abs(pageById('runner').en.path)}): ${pageById('runner').en.description}
 - [Favourite Mechanisms](${abs(pageById('favorites').en.path)}): ${
   pageById('favorites').en.description
 }
-- Türkçe: [Tasarım](${abs(pageById('home').tr.path)}), [Optimizasyon](${abs(
+- Türkçe: [Tasarım](${abs(pageById('home').tr.path)}), [Serbest Tasarım](${abs(
+  pageById('sketch').tr.path,
+)}), [Optimizasyon](${abs(
   pageById('optimizer').tr.path,
 )}), [Çalıştırıcı](${abs(pageById('runner').tr.path)}), [Favori Mekanizmalar](${abs(
   pageById('favorites').tr.path,
@@ -754,7 +768,7 @@ generated for reading; the interactive app lives at ${abs('/')}.
 
 ## Quick answers
 
-${[...HOME_FAQ, ...OPTIMIZER_CONTENT.faq, ...RUNNER_CONTENT.faq, ...FAVORITES_CONTENT.faq]
+${[...HOME_FAQ, ...SKETCH_FAQ, ...OPTIMIZER_CONTENT.faq, ...RUNNER_CONTENT.faq, ...FAVORITES_CONTENT.faq]
   .map((x) => `- **${x.q.en}** ${x.a.en}`)
   .join('\n')}
 

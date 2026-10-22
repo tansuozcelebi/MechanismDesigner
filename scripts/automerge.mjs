@@ -28,9 +28,13 @@
  *
  * A merge made with the workflow's GITHUB_TOKEN does not trigger other
  * workflows — GitHub's rule against recursive runs — so the push to main would
- * not run CI, and the deploy (chained to CI) would never fire. With
- * `--dispatch-ci` the script starts CI on the default branch explicitly once
- * something merged; workflow_dispatch is the documented exception to that rule.
+ * not run CI, and the deploy (chained to CI) would never fire. Dispatching CI
+ * does not help either: it runs, but a run started by the bot does not raise
+ * the `workflow_run` event the deploy listens for (seen on #17: CI green on
+ * main, no deploy). So `--dispatch-deploy` starts the deploy itself, pinned to
+ * the merge commit. The PR's head already passed CI, and the merge is only
+ * made when GitHub reports it conflict-free, so that commit is what was
+ * tested.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -85,7 +89,8 @@ async function main() {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   const repo = process.env.GITHUB_REPOSITORY || 'tansuozcelebi/MechanismDesigner';
   const dryRun = flag('--dry-run');
-  const dispatchCi = flag('--dispatch-ci');
+  const dispatchDeploy = flag('--dispatch-deploy');
+  let lastMerge = null;
   const onlyPr = value('--pr') ? Number(value('--pr')) : null;
 
   if (!token && !viaGh) {
@@ -165,12 +170,17 @@ async function main() {
       sha: pr.head.sha,
     });
     merged++;
+    lastMerge = result.sha;
     console.log(`#${n} merged: ${result.sha.slice(0, 7)} "${mergeTitle(pr)}".`);
   }
 
-  if (merged && dispatchCi && !dryRun) {
-    await gh('POST', `/repos/${repo}/actions/workflows/ci.yml/dispatches`, { ref: defaultBranch });
-    console.log(`Started CI on ${defaultBranch}; the deploy follows it when it passes.`);
+  // One deploy for the last merge: it contains every earlier one.
+  if (lastMerge && dispatchDeploy && !dryRun) {
+    await gh('POST', `/repos/${repo}/actions/workflows/deploy.yml/dispatches`, {
+      ref: defaultBranch,
+      inputs: { ref: lastMerge, mode: 'deploy' },
+    });
+    console.log(`Started the deploy of ${lastMerge.slice(0, 7)}.`);
   }
 }
 
