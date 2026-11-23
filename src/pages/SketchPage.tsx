@@ -174,8 +174,16 @@ export default function SketchPage() {
     const ys = pts.map((p) => p.y);
     const w = Math.max(...xs) - Math.min(...xs) || 100;
     const h = Math.max(...ys) - Math.min(...ys) || 100;
-    const k = Math.min((size.w * 0.8) / w, (size.h * 0.8) / h, 8);
-    setView({ cx: (Math.max(...xs) + Math.min(...xs)) / 2, cy: (Math.max(...ys) + Math.min(...ys)) / 2, k });
+    // The hint strip covers the top of the canvas and the playback bar the
+    // bottom, so fit into the band between them, not the whole canvas — a
+    // foot path drawn under the playback bar is a foot path nobody sees.
+    const top = 56;
+    const bottom = 84;
+    const band = Math.max(100, size.h - top - bottom);
+    const k = Math.min((size.w * 0.85) / w, (band * 0.9) / h, 8);
+    const midY = (Math.max(...ys) + Math.min(...ys)) / 2;
+    // Shift the centre so the drawing's middle lands in the middle of the band.
+    setView({ cx: (Math.max(...xs) + Math.min(...xs)) / 2, cy: midY - (bottom - top) / 2 / k, k });
   }, [sketch, sweep, size]);
 
   // Fit once the canvas has a real size, and whenever an example is loaded.

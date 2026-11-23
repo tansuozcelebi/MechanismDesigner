@@ -12,7 +12,7 @@ değiştirilebilir.*
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 210 unit + integration tests
+npm test           # 211 unit + integration tests
 npm run smoke      # browser smoke test against a running dev server (94 checks)
 npm run audit      # SEO/AEO audit of dist/ (also run at the end of every build)
 npm run build      # typecheck → bundle → generate the static/SEO surface
@@ -28,7 +28,7 @@ npm run optimize   # offline synthesis run (writes src/synthesis/optimizedResult
 
 | Job | Does |
 |---|---|
-| **verify** | `npm ci` → `typecheck` → `test` (210) → `build`, and uploads `dist` as an artifact |
+| **verify** | `npm ci` → `typecheck` → `test` (211) → `build`, and uploads `dist` as an artifact |
 | **smoke** | installs Chromium, starts the dev server, runs the 94-check browser smoke test |
 
 The smoke job runs against the **dev** server rather than the preview build on purpose: it drives
@@ -168,6 +168,14 @@ one motor crank, and the paths of any points you choose.
 | M | Motor crank — a link with exactly one end on a ground pivot |
 | T | Trace — draw this point's path |
 | Wheel | On a selected link: ±1 mm (Shift ±10, Alt ±0.1) while the paths update; otherwise zoom |
+
+Examples: a Grashof four-bar, the same with a coupler point, a Watt six-bar, and
+**Theo Jansen's Strandbeest leg** with his "holy numbers" (a = 38, b = 41.5,
+c = 39.3, d = 40.1, e = 55.8, f = 39.4, g = 36.7, h = 65.7, i = 49, j = 50,
+k = 61.9, l = 7.8, m = 15): eight bars, two rigid triangles, one crank, and a
+foot that traces the long flat stride the walking machines are known for.
+Its smallest transmission angle is 33.5°, below the usual 40° band — the
+analysis panel says so, which is true of Jansen's own proportions.
 
 Space runs, Ctrl+Z / Ctrl+Y undo and redo, F fits the view, Delete removes the
 selection; a near miss on a point counts as the point, so grid snapping cannot
@@ -377,7 +385,7 @@ page and the workbench had no `<h1>` (both now carry a visually hidden one),
 the document title never changed between views (it now names the view), and
 below 560 px the rule that hides the header's design buttons also hid the
 **EN/TR switch**, so a phone had no way to change language. `tests/seo.test.ts`
-(29 of the 210 tests) runs the real generator into a temporary directory and
+(29 of the 211 tests) runs the real generator into a temporary directory and
 asserts on its output rather than on its source: sitemap ↔ generated-page
 consistency in both directions, well-formed XML, reciprocal hreflang, a
 `robots.txt` that does not disallow `/`, every `llms.txt` link resolving to a

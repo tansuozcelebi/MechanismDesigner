@@ -168,8 +168,8 @@ export const METHODS: { title: Bilingual; body: Bilingual }[] = [
 
 export const VERIFICATION: Bilingual[] = [
   {
-    tr: '210 birim ve entegrasyon testi — mobilite, kapalı form çözüm, dal sürekliliği, yerçekimi momentinin sonlu farkla doğrulanması, hedef eğri gidiş-dönüşü, kısıtların sıfırlanması, favori mekanizmalar ve üretilen sitenin SEO/AEO denetimi.',
-    en: '210 unit and integration tests — mobility, closed-form solution, branch continuity, gravity torque checked against a finite difference, target round-tripping, constraint reset, favourite mechanisms and an SEO/AEO audit of the generated site.',
+    tr: '211 birim ve entegrasyon testi — mobilite, kapalı form çözüm, dal sürekliliği, yerçekimi momentinin sonlu farkla doğrulanması, hedef eğri gidiş-dönüşü, kısıtların sıfırlanması, favori mekanizmalar ve üretilen sitenin SEO/AEO denetimi.',
+    en: '211 unit and integration tests — mobility, closed-form solution, branch continuity, gravity torque checked against a finite difference, target round-tripping, constraint reset, favourite mechanisms and an SEO/AEO audit of the generated site.',
   },
   {
     tr: '94 tarayıcı smoke kontrolü — krank sürükleme, ekran↔dünya gidiş-dönüşü, oynatma, hata ayıklama katmanı, kol sayısı değişimi, seçim ve düzenleme, hedef düzenleme, kısıt değişimi, panel yerleşim menüsü, serbest sürükle-bırak, Serbest Tasarım, Optimizasyon/Çalıştırıcı görünümleri, favoriler ve EN/TR geçişi.',

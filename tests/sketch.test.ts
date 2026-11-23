@@ -103,4 +103,24 @@ describe('sketch solver', () => {
     expect(parseSketch(bad)).toEqual({ joints: [], links: [], motor: null, tracers: [] } satisfies Sketch);
     expect(parseSketch(null)).toBeNull();
   });
+
+  it('ships the Jansen leg with the holy numbers, and it walks', () => {
+    const s = preset('jansen');
+    const holy = [15, 50, 61.9, 41.5, 39.3, 40.1, 55.8, 39.4, 36.7, 65.7, 49];
+    expect(s.links.map((l) => l.length)).toEqual(holy);
+    // The drawn positions are an assembly of exactly those lengths.
+    const pose = poseOf(s);
+    for (const l of s.links) expect(Math.abs(d(pose[l.a], pose[l.b]) - l.length)).toBeLessThan(1e-2);
+    expect(d(pose.O, pose.B)).toBeCloseTo(Math.hypot(38, 7.8), 6);
+    expect(mobility(s).dof).toBe(1);
+    const sw = sweepSketch(s, 180);
+    expect(sw.fullRotation).toBe(true);
+    // The foot's stride: much wider than it is tall, and always below the hip.
+    const xs = sw.frames.map((f) => f.H.x);
+    const ys = sw.frames.map((f) => f.H.y);
+    const stride = Math.max(...xs) - Math.min(...xs);
+    const lift = Math.max(...ys) - Math.min(...ys);
+    expect(stride).toBeGreaterThan(2.5 * lift);
+    expect(Math.max(...ys)).toBeLessThan(-60);
+  });
 });
